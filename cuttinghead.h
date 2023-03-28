@@ -48,7 +48,7 @@ private:
 	int		calibrate_time = PISTON_CALIBRATE_TIME;
 	//speed calculation
 	unsigned long	last_time = millis();
-	unsigned long	speed_time = PISTON_SPEED_TIME;
+	unsigned long	speed_update_time = PISTON_SPEED_TIME;
 
 	void move(int input,int& out_pwm, int &out_dir);
 	void	pos_controller(int in_analog_pos, int &out_pwm, int &out_dir);
@@ -56,13 +56,14 @@ private:
 public:
 	piston();
 	//setters	
-	float	set_pos				(float val);				//this one controls where the piston will go
-	float	set_pos_mode_speed	(float val);
-	float	set_speed			(float val);
-	void	set_speed_time		(unsigned long val);	
-	void	set_tolerance		(float val);
-	void	set_pos_limits		(float min, float max);
-	void	set_analog_limits	(int min, int max);			//sets the limit value of the analog values read from the piston
+	float	set_pos(float val);				//this one controls where the piston will go
+	float	set_pos_mode_speed(float val);
+	float	set_speed(float val);
+	void	set_speed_update_time(unsigned long val);
+	void	set_P_boundary(float val);
+	void	set_tolerance(float val);
+	void	set_pos_limits(float min, float max);
+	void	set_analog_limits(int min, int max);			//sets the limit value of the analog values read from the piston
 	//getters
 	float	get_target_pos		();
 	float	get_current_pos		();
