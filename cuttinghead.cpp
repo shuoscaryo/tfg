@@ -2,11 +2,28 @@
 #include <math.h>
 #define pi 3.14159265358979323846264
 
-static float scale(float in, float in_min, float in_max, float out_min, float out_max) {
+template <typename T> static T scale(T in, T in_min, T in_max, T out_min, T out_max)
+{
+/*
+	Scales the "in" value that ranges between "in_min" and "in_max" to a range equivalent
+	to "out_min" and "out_max". Eg: if "in"= 3, and is in range (0,10), and the output
+	range is (0,100), the function will return 30.
+*/
 	float percentage = (in - in_min) / (in_max - in_min);
 	return out_min + percentage * (out_max - out_min);
 }
 
+template <typename T> static int constrain(T in, T min, T max)
+{
+/*
+	Contrains the "in" value to be between "min" and "max".
+	The type of the variable to be limited needs to have "<" and ">" operators.
+	Returns the constrained value.
+*/
+	if (in > max) return (max);
+	if (in < min) return (min);
+	return (in);
+}
 /*								   _      __
 							____  (_)____/ /_____  ____ 
 						   / __ \/ / ___/ __/ __ \/ __ \
@@ -14,35 +31,143 @@ static float scale(float in, float in_min, float in_max, float out_min, float ou
 						 / .___/_/____/\__/\____/_/ /_/ 
 						/_/										*/
 //private
-void piston::move(int input, int& out_pwm, int& out_dir) {
-	if (input > 1)		 input = 1;	//conbstrain the input between -1 and 1 
-	else if (input < -1) input = -1;
+void piston::move(int input, int& out_pwm, int& out_dir)
+{
+/*
+	Sets the values of the "pwm_pin" and "dir_pin" that coincide with the input value.
+	If the input value is out of the range of the piston, it will be constrained.
+*/
+	input = constrain (input, -1, 1);
 	out_pwm = abs(input) * 255;		//set pwm speed
 	out_dir = input > 0;			//if input>0 dir=1 else dir=0
 }
-//public
-piston::piston() {}
 
-void piston::set_target_pos		(float input)	{
-	if (input < min_pos)		target_pos = min_pos;
-	else if (input > max_pos)	target_pos = max_pos;
-	else						target_pos = input;
+void	piston::pos_controller(int in_analog_pos, int &out_pwm, int &out_dir)
+{
+/*
+	The controller is a VSC-SM, it works with a P controller inside the P area, and at max speed
+	outside of it. It also has an area set by the tolerance value that stops the piston because it
+	is considered to be in the correct position.
+*/
+	int	dif = target_pos - current_pos;
+	int	abs_dif = abs(dif);
+
+	if (abs_dif < tolerance)			//if inside tolerance
+		out_pwm = 0;
+	else if(abs_dif < P_boundary){ 		//else if inside P area
+		out_pwm = pos_mode_speed * 255 * abs_dif / P_boundary;
+		out_dir = dif > 0;
+	}
+	else{								//else outside P area
+		out_pwm = pos_mode_speed * 255;
+		out_dir = dif > 0;
+	}
 }
-void piston::set_pos_limit(float min, float max) {
-	if (min < max) { min_pos = min; max_pos = max; }
-	else		   { min_pos = max; max_pos = min; }
+
+void	piston::speed_controller()
+{
+
 }
-void piston::set_tolerance		(float input)	{
+//public
+piston::piston()
+{}
+
+float piston::set_pos(float input)
+{
+/*
+	Sets the position to where the piston will go.
+	Sets the state to POS_MODE if not in STOP state.
+	Only works if the piston is not in STOP state.
+	If the position is out of range, it will be constrained.
+	Returns the value that has been set or 0 if couldn't be set.
+*/
+	if (STATE != STOP)
+	{
+		state = POS_MODE
+		input = constrain (input, min_pos, max_pos);
+		target_pos = input;
+		return (input);
+	}
+	return (0);
+}
+
+float piston::set_pos_mode_speed	(float input)
+{
+/*
+	Sets the speed at which the piston will move when in "position mode".
+	The "input" will be constrained between 0 and 1.
+	Returns the value set.
+*/
+	input = constrain(input, 0, 1);
+	pos_mode_speed = input;
+	return (pos_mode_speed);
+}
+
+float piston::set_speed		(float input)
+{
+/*
+	Sets the speed at which the piston will move.
+	Sets the state to SPEED_MODE if not in STOP state.
+	Only works if the piston is not in STOP state.
+	The speed will be constrained to (-1,1).
+	Returns the value that has been set or 0 if couldn't be set.
+*/
+	if (STATE != STOP)
+	{
+		state = SPEED_MODE
+		input = constrain (input, -1, 1);
+		target_speed = input;
+		return (input);
+	}
+	return (0);
+}
+
+float piston::set_tolerance		(float input)
+{
+/*
+	Sets the tolerance of the piston (the range where the position is considered ok).
+	it will set the absolute value of the input.
+	Returns the tolerance.
+*/
 	if (input >= 0) tolerance = input;
 	else			tolerance = -input;
-}
-void piston::set_analog_limit(int min, int max) {
-	if (min < max)	{ analog_min = min; analog_max = max; }
-	else			{ analog_min = max; analog_max = min; }
+	return (tolerance);
 }
 
+int piston::set_pos_limits(float min, float max)
+{
+/*
+	Sets the limit positions of the piston.
+	If "min" is greater than "max", the limit values will still be set so that 
+	the minimum position is smaller than the maximum. 
+	If both values are the same, no assignment will be made.
+	Returns "1" if the assignment has been made and "0" otherwise.
+*/
+	if (min < max) 		{ min_pos = min; max_pos = max; return (1); }
+	else if (min > max)	{ min_pos = max; max_pos = min; return (1); }
+	else				return (0);
+}
+
+int piston::set_analog_limits(int min, int max)
+{
+/*
+	Sets the limit values read of the potentiometer of the piston.
+	If "min" is greater than "max", the limit values will still be set so that 
+	the minimum is smaller than the maximum. 
+	If both values are the same, no assignment will be made.
+	Returns "1" if the assignment has been made and "0" otherwise.
+*/
+	if (min < max)		{ analog_min = min; analog_max = max; return (1); }
+	else if (min > max)	{ analog_min = max; analog_max = min; return (1); }
+	else				return (0);
+}
+
+// these functions return the requested values of the piston.
 float	piston::get_target_pos()		{return target_pos		;}
 float	piston::get_current_pos()		{return current_pos		;}
+float	piston::get_pos_mode_speed()	{return pos_mode_speed	;}
+float	piston::get_target_speed()		{return target_speed	;}
+float	piston::get_current_speed()		{return current_speed	;}
 float	piston::get_max_pos()			{return max_pos			;}
 float	piston::get_min_pos()			{return min_pos			;}
 float	piston::get_tolerance()			{return tolerance		;}
@@ -50,34 +175,70 @@ float	piston::get_analog_min()		{return analog_min		;}
 float	piston::get_analog_max()		{return analog_max		;}
 int		piston::get_state()				{return state			;}
 
-void piston::calibrate(int in) {
-	if (state == RUNNING||state==INIT) {
+void	piston::calibrate (int in)
+{
+/*
+	This functions sets the state of the piston to calibrate.
+	The "in" value will set the time that has to pass without a new limit reading of the potentiometer
+	analog value to be considered a limit position. (if it is too small it might consider that the piston
+	is on an end before time, and if it's too big it will take too much time to calibrate)
+	Only works if the piston is running on SPEED_MODE, INIT or POS_MODE. 
+	Multiple executions of the function wont reset the calibrate until it's done.
+*/
+	if (state == SPEED_MODE || state == INIT || state == POS_MODE) {
 		calibrate_time = in;
 		state = CALIBRATING_MAX;
 		calibrate_limit_value = 0;
-		calibrate_last_time=millis();
+		calibrate_last_time = millis();
 	}
 }
-void piston::stop() {state = STOP;}
-void piston::start() {state = INIT;}
 
-void piston::update(int in_analog_pos,int& out_pwm,int& out_dir) {
+void piston::stop()
+{
+/*
+	Sets the state of the piston to stop, so it will stop moving and won't do anything until resetted.
+*/
+	state = STOP;
+}
+
+void piston::begin()
+{
+/*
+	sets the piston's state to INIT to reset it.
+*/
+	state = INIT;
+}
+
+void piston::update(int in_analog_pos,int& out_pwm,int& out_dir)
+{
+/*
+	This function handles the piston behaviour, and updates some parameters like the speed or position.
+	It does different things depending on the state that the piston is currently on.
+	The input variables are:
+		-in_analog_pos: the value read from analogRead of the potentiometer of the piston.
+		-out_pwm: the value that will be sent to the PWM pin of the piston.
+		-out_dir: the value that will be setn to the dir pin of the piston.
+*/
+// the init state is before everything else so that no calculation is made.
+	if (state == INIT){
+		target_pos = current_pos = scale(in_analog_pos, analog_min, analog_max, min_pos, max_pos);
+		target_speed = 0;
+		return;
+	}
+// This part updates the "current_pos" and "current_speed" variables of the piston
+	float			last_pos = current_pos;
+	unsigned long	current_time = millis();
 
 	current_pos = scale(in_analog_pos, analog_min, analog_max, min_pos, max_pos);
 
-	if (state == INIT) {
-		target_pos = current_pos;
-		state = RUNNING;
-	}
-	if (state == RUNNING) {
-		float dif = target_pos - current_pos;				//calculate the difference between the current pos and the target pos
-		float abs_dif = dif * ((dif > 0) - (dif < 0));		//get the absolute value of the difference
-		if (tolerance >= abs_dif) { dif = 0; }				//if the piston is inside the tolerance stop moving
-		if (dif > 0)move(1, out_pwm, out_dir);				//current control method 
-		else if (dif == 0)move(0, out_pwm, out_dir);
-		else move(-1, out_pwm,out_dir);
-	}
-	if (state==CALIBRATING_MAX) {							//move the piston only if its not being calibrated
+	if (current_time - last_time >= speed_time)
+		current_speed = (current_pos - last_pos) / (current_time - last_time);
+// This part is the state machine of the piston
+	if (state == POS_MODE)
+		pos_controller(in_analog_pos, out_pwm, out_dir);
+	if (state == SPEED_MODE)
+		speed_controller(in_analog_pos, out_pwm, out_dir);
+	if (state == CALIBRATING_MAX) {							//move the piston only if its not being calibrated
 		int current_time = millis();
 		move(1,out_pwm,out_dir);
 		if (in_analog_pos > calibrate_limit_value) {			//if read value is greater than saved, save the new value and reset counter
@@ -100,12 +261,13 @@ void piston::update(int in_analog_pos,int& out_pwm,int& out_dir) {
 		if (current_time - calibrate_last_time >= calibrate_time) {		//if sample is big enough and there was no new highest value for a while save it
 			analog_min = in_analog_pos;
 			target_pos = CHP_DEFAULT_MIN_POS;
-			state = RUNNING;
+			state = INIT;
 		}
 	}
 	if (state == STOP) {
 		move(0,out_pwm,out_dir);
 	}
+	last_time = millis();
 }
 /*											__
 						   ____ ___  ____  / /_____  _____

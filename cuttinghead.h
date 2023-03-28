@@ -1,13 +1,24 @@
 #pragma once
 #include "Arduino.h"
 
-#define CHP_DEFAULT_MAX_POS		152		//datasheet value
-#define CHP_DEFAULT_MIN_POS		102		//datasheet value
-#define CHP_DEFAULT_TOLERANCE	5
-#define	CHP_DEFAULT_ANALOG_MIN	14		//experimental value (tested reading the piston position pin at min extension)
-#define	CHP_DEFAULT_ANALOG_MAX	1004	//experimental value (tested reading the piston position pin at max extension)
+#define PISTON_MAX_POS		152		//datasheet value
+#define PISTON_MIN_POS		102		//datasheet value
+#define PISTON_TOLERANCE	1
+#define	PISTON_ANALOG_MIN	0		//experimental value (tested reading the piston position pin at min extension)
+#define	PISTON_ANALOG_MAX	1024	//experimental value (tested reading the piston position pin at max extension)
+#define PISTON_SPEED_TIME	100		//time in miliseconds between speed measurement of the piston.
+#define PISTON_CALIBRATE_TIME 3000			//amount of ticks that the analog read value must remain constant to consider the piston static
+#define	PISTON_P_BOUNDARY	5		//size of the area where the piston works in linear mode when on POS_MODE state
+#define P_MOTOR_DEFAULT_MAX_RPM 55
+#define P_MOTOR_DEFAULT_GEAR_RATIO 99
+#define P_MOTOR_DEFAULT_CPR 12
+#define P_MOTOR_CALIBRATION_TICKS 5			//how many ticks does the rpm have to stay stable for it to be counted as max (a tick happens every P_MOTOR_RPM_UPDATE_TIME milliseconds)
+#define P_MOTOR_RPM_UPDATE_TIME 1000		//how many milliseconds have to pass to calculate the new rpm
 
-#define CHP_CALIBRATE_TIME 3000			//amount of ticks that the analog read value must remain constant to consider the piston static
+#define CH_BASE1 53.2
+#define CH_BASE2 45
+#define CH_LONG1 127
+#define CH_LONG2 120
 
 class piston;
 class motor;
@@ -16,53 +27,61 @@ class cutting_head;
 class piston{
 private:
 	//piston mechanical values
-	float	target_pos;						//to what position should the piston move (cm)
-	float	current_pos;					//current position of the piston (cm)
-	float	max_pos=CHP_DEFAULT_MAX_POS;		//maximum extension value of the piston (cm)
-	float	min_pos=CHP_DEFAULT_MIN_POS;		//minimum extension value of the piston (cm)
-	float	tolerance=CHP_DEFAULT_TOLERANCE;	//allowed error between current_pos and target_pos
+	float	target_pos;							//to what position should the piston move (cm)
+	float	current_pos;						//current position of the piston (cm)
+	float	target_speed;						//value between -1 and 1
+	float	current_speed;
+	float	max_pos = PISTON_MAX_POS;		//maximum extension value of the piston (mm)
+	float	min_pos = PISTON_MIN_POS;		//minimum extension value of the piston (mm)
+	//pos controller variables
+	float	P_boundary = PISTON_P_BOUNDARY;
+	float	pos_mode_speed = 1;
+	float	tolerance = PISTON_TOLERANCE;	//allowed error between current_pos and target_pos
 	//piston electrical values
-	int		analog_min=CHP_DEFAULT_ANALOG_MIN;	//lower value that pin_current_pos reads (0-1024) (when current_pos==min_pos)	
-	int		analog_max=CHP_DEFAULT_ANALOG_MAX;	//higher value that pin_current_pos reads (0-1024) (when current_pos==max_pos)
+	int		analog_min = PISTON_ANALOG_MIN;	//lower value that pin_current_pos reads (0-1024) (when current_pos==min_pos)	
+	int		analog_max = PISTON_ANALOG_MAX;	//higher value that pin_current_pos reads (0-1024) (when current_pos==max_pos)
 	//state variables
-	enum states : char { INIT, RUNNING, CALIBRATING_MAX, CALIBRATING_MIN, STOP };
+	enum states : char { INIT, SPEED_MODE, POS_MODE, CALIBRATING_MAX, CALIBRATING_MIN, STOP };
 	states	state=INIT;
 	int		calibrate_limit_value;
-	int		calibrate_last_time = millis();
-	int		calibrate_time = CHP_CALIBRATE_TIME;
+	int		calibrate_time = PISTON_CALIBRATE_TIME;
+	//speed calculation
+	unsigned long	last_time = millis();
+	unsigned long	speed_time = PISTON_SPEED_TIME;
 
-	void move(int input,int& out_pwm, int &out_dir);	//values between -1 and 1
-	piston();
+	void move(int input,int& out_pwm, int &out_dir);
+	void	pos_controller(int in_analog_pos, int &out_pwm, int &out_dir);
+	void	speed_controller(int in_analog_pos, int &out_pwm, int &out_dir);
 public:
+	piston();
 	//setters	
-	void set_target_pos		(float	);		//this one controls where the piston will go
-	void set_pos_limit		(float	min,float max);
-	void set_tolerance		(float	);
-	void set_analog_limit	(int	min,int max);
-
+	float	set_pos				(float val);				//this one controls where the piston will go
+	float	set_pos_mode_speed	(float val);
+	float	set_speed			(float val);
+	void	set_speed_time		(unsigned long val);	
+	void	set_tolerance		(float val);
+	void	set_pos_limits		(float min, float max);
+	void	set_analog_limits	(int min, int max);			//sets the limit value of the analog values read from the piston
 	//getters
-	float				get_target_pos		();
-	float				get_current_pos		();
-	float				get_max_pos			();
-	float				get_min_pos			();
-	float				get_tolerance		();
-	float				get_analog_min		();
-	float				get_analog_max		();
-	int					get_state			();
+	float	get_target_pos		();
+	float	get_current_pos		();
+	float	get_pos_mode_speed	();
+	float	get_target_speed	();
+	float	get_current_speed	();
+	float	get_max_pos			();
+	float	get_min_pos			();
+	float	get_tolerance		();
+	float	get_analog_min		();
+	float	get_analog_max		();
+	int		get_state			();
 	//random methods
-	void calibrate(int= CHP_CALIBRATE_TIME);		//automatically sets analog_min and max by doing a test moving the piston to its end positions
-	void stop();									//stops the calibration (for emergency or stuff)
-	void start();
+	void calibrate(int time= CHP_CALIBRATE_TIME);		//automatically sets analog_min and max by doing a test moving the piston to its end positions
+	void stop();									//sets the stop state(for emergency or stuff)
+	void begin();
 	void update(int in_analog_pos,int& out_pwm,int& out_dir);	//controls the position of the piston, so it can reach the target_pos
 	
 	friend class cutting_head;
 };
-
-#define P_MOTOR_DEFAULT_MAX_RPM 55
-#define P_MOTOR_DEFAULT_GEAR_RATIO 99
-#define P_MOTOR_DEFAULT_CPR 12
-#define P_MOTOR_CALIBRATION_TICKS 5			//how many ticks does the rpm have to stay stable for it to be counted as max (a tick happens every P_MOTOR_RPM_UPDATE_TIME milliseconds)
-#define P_MOTOR_RPM_UPDATE_TIME 1000		//how many milliseconds have to pass to calculate the new rpm
 
 class motor {
 private:
@@ -110,11 +129,6 @@ public:
 
 	friend class cutting_head;
 };
-
-#define CH_BASE1 53.2
-#define CH_BASE2 45
-#define CH_LONG1 127
-#define CH_LONG2 120
 
 class cutting_head {
 private:
