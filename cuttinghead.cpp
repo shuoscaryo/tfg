@@ -54,19 +54,16 @@ void	piston::pos_controller(int in_analog_pos, int &out_pwm, int &out_dir)
 
 	if (abs_dif < tolerance)			//if inside tolerance
 		out_pwm = 0;
-	else if(abs_dif < P_boundary){ 		//else if inside P area
-		out_pwm = pos_mode_speed * 255 * abs_dif / P_boundary;
-		out_dir = dif > 0;
-	}
-	else{								//else outside P area
-		out_pwm = pos_mode_speed * 255;
+	else{
+		out_pwm = pos_mode_speed * 255 * constrain(abs_dif / P_boundary, 0 , 1);
 		out_dir = dif > 0;
 	}
 }
 
-void	piston::speed_controller()
+void	piston::speed_controller(int in_analog_pos, int &out_pwm, int &out_dir)
 {
-
+	out_pwm = target_speed * 255;
+	out_dir = dif > 0;
 }
 //public
 piston::piston()
