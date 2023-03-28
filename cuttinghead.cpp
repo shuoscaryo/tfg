@@ -182,7 +182,7 @@ void	piston::calibrate (int in)
 	Only works if the piston is running on SPEED_MODE, INIT or POS_MODE. 
 	Multiple executions of the function wont reset the calibrate until it's done.
 */
-	if (state == SPEED_MODE || state == INIT || state == POS_MODE) {
+	if (state != CALIBRATING_MAX && state != CALIBRATING_MIN && state != STOP){
 		calibrate_time = in;
 		state = CALIBRATING_MAX;
 		calibrate_limit_value = 0;
@@ -236,20 +236,18 @@ void piston::update(int in_analog_pos,int& out_pwm,int& out_dir)
 	if (state == SPEED_MODE)
 		speed_controller(in_analog_pos, out_pwm, out_dir);
 	if (state == CALIBRATING_MAX) {							//move the piston only if its not being calibrated
-		int current_time = millis();
 		move(1,out_pwm,out_dir);
 		if (in_analog_pos > calibrate_limit_value) {			//if read value is greater than saved, save the new value and reset counter
 			calibrate_limit_value = in_analog_pos;
 			calibrate_last_time = current_time;
 		}
-		if (current_time-calibrate_last_time >= calibrate_time) {		//if sample is big enough and there was no new highest value for a while save it
+		if (current_time - calibrate_last_time >= calibrate_time) {		//if sample is big enough and there was no new highest value for a while save it
 			analog_max = in_analog_pos;
 			state = CALIBRATING_MIN;
 			calibrate_last_time = current_time;
 		}
 	}
 	if (state == CALIBRATING_MIN) {											//move the piston only if its not being calibrated
-		int current_time = millis();
 		move(-1,out_pwm,out_dir);
 		if (in_analog_pos < calibrate_limit_value) {			//if read value is greater than saved, save the new value and reset counter
 			calibrate_limit_value = in_analog_pos;
@@ -257,12 +255,11 @@ void piston::update(int in_analog_pos,int& out_pwm,int& out_dir)
 		}
 		if (current_time - calibrate_last_time >= calibrate_time) {		//if sample is big enough and there was no new highest value for a while save it
 			analog_min = in_analog_pos;
-			target_pos = CHP_DEFAULT_MIN_POS;
 			state = INIT;
 		}
 	}
 	if (state == STOP) {
-		move(0,out_pwm,out_dir);
+		move(0, out_pwm, out_dir);
 	}
 	last_time = millis();
 }

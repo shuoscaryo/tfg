@@ -44,6 +44,7 @@ private:
 	enum states : char { INIT, SPEED_MODE, POS_MODE, CALIBRATING_MAX, CALIBRATING_MIN, STOP };
 	states	state=INIT;
 	int		calibrate_limit_value;
+	unsigned long calibrate_last_time = millis();
 	int		calibrate_time = PISTON_CALIBRATE_TIME;
 	//speed calculation
 	unsigned long	last_time = millis();
