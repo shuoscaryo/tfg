@@ -65,7 +65,10 @@ void	piston::pos_controller(int in_analog_pos, int &out_pwm, int &out_dir)
 
 void	piston::speed_controller(int in_analog_pos, int &out_pwm, int &out_dir)
 {
-	out_pwm = target_speed * 255;
+/*
+	Sets the piston speed by scaling the target speed (0,1) to a pwm value.
+*/
+	out_pwm = constrain(target_speed * 255, 0 ,1);
 	out_dir = dif > 0;
 }
 //public
@@ -173,7 +176,7 @@ int	piston::set_analog_limits(int min, int max)
 	else				return (0);
 }
 
-// these functions return the requested values of the piston.
+// these functions return the requested values from the piston.
 float	piston::get_target_pos()		{return target_pos		;}
 float	piston::get_current_pos()		{return current_pos		;}
 float	piston::get_pos_mode_speed()	{return pos_mode_speed	;}
@@ -231,7 +234,11 @@ void	piston::update(int in_analog_pos,int& out_pwm,int& out_dir)
 		-out_dir: the value that will be setn to the dir pin of the piston.
 	The states do:
 		-INIT: sets the piston speed to 0, and updates the current pos.
-		-
+		-POS_MODE: controls the piston by setting the position.
+		-SPEED_MODE: controls the piston by setting the speed.
+		-CALIBRATING_MAX: expands the piston to see whats the max analog value read.
+		-CALIBRATING_MIN: expands the piston to see whats the min analog value read.
+		-STOP: stops the piston and forbids using the "set_pos" and "set_speed" methods.
 */
 // the init state is before everything else so that no calculation is made.
 	if (state == INIT){
