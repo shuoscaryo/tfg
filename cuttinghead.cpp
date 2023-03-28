@@ -256,12 +256,8 @@ void	piston::update(int in_analog_pos,int& out_pwm,int& out_dir)
 	if (current_time - last_time >= speed_update_time)
 		current_speed = (current_pos - last_pos) / (current_time - last_time);
 // This part is the state machine of the piston
-	if (state == POS_MODE){
-		pos_controller(in_analog_pos, out_pwm, out_dir);
-	}
-	if (state == SPEED_MODE){
-		speed_controller(in_analog_pos, out_pwm, out_dir);
-	}
+	if (state == POS_MODE)pos_controller(in_analog_pos, out_pwm, out_dir);
+	if (state == SPEED_MODE)speed_controller(in_analog_pos, out_pwm, out_dir);
 	if (state == CALIBRATING_MAX) {							//move the piston only if its not being calibrated
 		move(1,out_pwm,out_dir);
 		if (in_analog_pos > calibrate_limit_value) {			//if read value is greater than saved, save the new value and reset counter
@@ -285,9 +281,7 @@ void	piston::update(int in_analog_pos,int& out_pwm,int& out_dir)
 			state = INIT;
 		}
 	}
-	if (state == STOP) {
-		move(0, out_pwm, out_dir);
-	}
+	if (state == STOP)move(0, out_pwm, out_dir);
 	last_time = millis();
 }
 /*											__

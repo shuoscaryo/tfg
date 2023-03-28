@@ -9,6 +9,7 @@
 #define PISTON_SPEED_TIME	100		//time in miliseconds between speed measurement of the piston.
 #define PISTON_CALIBRATE_TIME 3000			//amount of ticks that the analog read value must remain constant to consider the piston static
 #define	PISTON_P_BOUNDARY	5		//size of the area where the piston works in linear mode when on POS_MODE state
+
 #define P_MOTOR_DEFAULT_MAX_RPM 55
 #define P_MOTOR_DEFAULT_GEAR_RATIO 99
 #define P_MOTOR_DEFAULT_CPR 12
@@ -105,8 +106,9 @@ private:
 	float			encoder_cpr		= P_MOTOR_DEFAULT_CPR;							//amount of notches in a single encoder of the motor
 
 	int	 update_rpm();																//updates the rpm if enough time has passed, returns 1 if rpm have been updated and 0 if not
-	motor();
+	void	controller();
 public:
+	motor();
 	//setters
 	void set_target_rpm(float);														//absolute value of rpm (if its higher than max it will get constrained to max_rpm)
 	void set_target_speed(float);													//values between 0-1, speed is relative to max rpm
