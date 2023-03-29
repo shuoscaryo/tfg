@@ -290,7 +290,8 @@ void	piston::update(int in_analog_pos,int& out_pwm,int& out_dir)
 						 / / / / / / /_/ / /_/ /_/ / /
 						/_/ /_/ /_/\____/\__/\____/_/						*/
 //PRIVATE METHODS
-int motor::update_rpm() {
+int motor::update_rpm()
+{
 	int time = millis();
 	if (time - last_time >= update_time) {
 		current_rpm = encoder_ticks * 60.0 / ((time - last_time) * gear_ratio * encoder_cpr) * 1000;

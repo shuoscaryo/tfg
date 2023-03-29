@@ -10,11 +10,11 @@
 #define PISTON_CALIBRATE_TIME 3000			//amount of ticks that the analog read value must remain constant to consider the piston static
 #define	PISTON_P_BOUNDARY	5		//size of the area where the piston works in linear mode when on POS_MODE state
 
-#define P_MOTOR_DEFAULT_MAX_RPM 55
-#define P_MOTOR_DEFAULT_GEAR_RATIO 99
-#define P_MOTOR_DEFAULT_CPR 12
-#define P_MOTOR_CALIBRATION_TICKS 5			//how many ticks does the rpm have to stay stable for it to be counted as max (a tick happens every P_MOTOR_RPM_UPDATE_TIME milliseconds)
-#define P_MOTOR_RPM_UPDATE_TIME 1000		//how many milliseconds have to pass to calculate the new rpm
+#define MOTOR_MAX_RPM 55
+#define MOTOR_GEAR_RATIO 99
+#define MOTOR_CPR 12
+#define MOTOR_CALIBRATION_TICKS 5			//how many ticks does the rpm have to stay stable for it to be counted as max (a tick happens every P_MOTOR_RPM_UPDATE_TIME milliseconds)
+#define MOTOR_RPM_UPDATE_TIME 1000		//how many milliseconds have to pass to calculate the new rpm
 
 #define CH_BASE1 53.2
 #define CH_BASE2 45
@@ -89,9 +89,9 @@ public:
 class motor {
 private:
 	//motor state variables
-	float			target_rpm=0;													//objective rpm of motor
+	float			target_rpm = 0;													//objective rpm of motor
 	float			current_rpm;													//current rpm of motor
-	float			max_rpm= P_MOTOR_DEFAULT_MAX_RPM;								//max rpm that the motor can reach with empty load (use calibrate() or calibrate_lock() to get the true value or set_max_rpm() for aproximations)
+	float			max_rpm = MOTOR_MAX_RPM;								//max rpm that the motor can reach with empty load (use calibrate() or calibrate_lock() to get the true value or set_max_rpm() for aproximations)
 	//calibrate method variables
 	enum states : char { RUNNING, CALIBRATING, STOP };
 	states			state					= RUNNING;								//variable used to let the program know that a calibration is taking place (state=1) or not (state=0)
