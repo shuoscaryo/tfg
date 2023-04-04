@@ -51,7 +51,7 @@ private:
 	unsigned long	last_time = millis();
 	unsigned long	speed_update_time = PISTON_SPEED_TIME;
 
-	void move(int input,int& out_pwm, int &out_dir);
+	void	move(int input,int& out_pwm, int &out_dir);
 	void	pos_controller(int in_analog_pos, int &out_pwm, int &out_dir);
 	void	speed_controller(int in_analog_pos, int &out_pwm, int &out_dir);
 public:
@@ -65,6 +65,7 @@ public:
 	void	set_tolerance(float val);
 	void	set_pos_limits(float min, float max);
 	void	set_analog_limits(int min, int max);			//sets the limit value of the analog values read from the piston
+	void	set_calibration_time(unsigned int val);
 	//getters
 	float	get_target_pos		();
 	float	get_current_pos		();
@@ -78,7 +79,7 @@ public:
 	float	get_analog_max		();
 	int		get_state			();
 	//random methods
-	void calibrate(int time= CHP_CALIBRATE_TIME);		//automatically sets analog_min and max by doing a test moving the piston to its end positions
+	void calibrate();		//automatically sets analog_min and max by doing a test moving the piston to its end positions
 	void stop();									//sets the stop state(for emergency or stuff)
 	void begin();
 	void update(int in_analog_pos,int& out_pwm,int& out_dir);	//controls the position of the piston, so it can reach the target_pos
@@ -110,26 +111,26 @@ private:
 public:
 	motor();
 	//setters
-	void set_target_rpm(float);														//absolute value of rpm (if its higher than max it will get constrained to max_rpm)
-	void set_target_speed(float);													//values between 0-1, speed is relative to max rpm
-	void set_max_rpm(float);														//manually set the max_rpm (used when the calibration is not wanted)
-	void set_update_time(int);														//set the update_time (time between rpm updates)
-	void set_gear_ratio(float);														//set the gear_ratio of the motor (motor rev/output shaft rev)
-	void set_encoder_cpr(float);													//set the encoder_cpr of the motor (count of notches in one encoder disk)
+	void set_target_rpm(float);		//absolute value of rpm (if its higher than max it will get constrained to max_rpm)
+	void set_target_speed(float);	//values between 0-1, speed is relative to max rpm
+	void set_max_rpm(float);		//manually set the max_rpm (used when the calibration is not wanted)
+	void set_update_time(int);		//set the update_time (time between rpm updates)
+	void set_gear_ratio(float);		//set the gear_ratio of the motor (motor rev/output shaft rev)
+	void set_encoder_cpr(float);	//set the encoder_cpr of the motor (count of notches in one encoder disk)
 	//getters
-	float get_target_rpm();															//returns the target_rpm of the motor
-	float get_current_rpm();														//returns the current_rpm of the motor
-	float get_max_rpm();															//returns the max_rpm of the motor
-	int get_state();																//return current state of motor
-	int get_update_time();															//returns update_time
-	float get_gear_ratio();															//returns gear ratio
-	float get_encoder_cpr();														//returns encoder cpr
+	float get_target_rpm();			//returns the target_rpm of the motor
+	float get_current_rpm();		//returns the current_rpm of the motor
+	float get_max_rpm();			//returns the max_rpm of the motor
+	int get_state();				//return current state of motor
+	int get_update_time();			//returns update_time
+	float get_gear_ratio();			//returns gear ratio
+	float get_encoder_cpr();		//returns encoder cpr
 	//random methods
-	void calibrate( int =P_MOTOR_CALIBRATION_TICKS);								//sets motor state to calibrate (returns -1 if its not posible to calibrate and 1 if success)
-	void stop();																	//stops the motion and sets the state to 2 (error)
-	void start();																	//sets state to 0 (normal working)
-	void update(int& out_pwm);														//PUT THIS ON VOID LOOP(), returns the state of the motor.
-	void encoder_handler();															//function to call from the handler of the motor in the main program
+	void calibrate();				//sets motor state to calibrate (returns -1 if its not posible to calibrate and 1 if success)
+	void stop();					//stops the motion and sets the state to 2 (error)
+	void start();					//sets state to 0 (normal working)
+	void update(int& out_pwm);		//PUT THIS ON VOID LOOP(), returns the state of the motor.
+	void encoder_handler();			//function to call from the handler of the motor in the main program
 
 	friend class cutting_head;
 };

@@ -176,6 +176,10 @@ int	piston::set_analog_limits(int min, int max)
 	else				return (0);
 }
 
+void	set_calibration_time(unsigned int val)
+{
+	calibrate_time = val;
+}
 // these functions return the requested values from the piston.
 float	piston::get_target_pos()		{return target_pos		;}
 float	piston::get_current_pos()		{return current_pos		;}
@@ -189,7 +193,7 @@ float	piston::get_analog_min()		{return analog_min		;}
 float	piston::get_analog_max()		{return analog_max		;}
 int		piston::get_state()				{return state			;}
 
-void	piston::calibrate (int in)
+void	piston::calibrate ()
 {
 /*
 	This functions sets the state of the piston to calibrate.
@@ -200,7 +204,6 @@ void	piston::calibrate (int in)
 	Multiple executions of the function wont reset the calibrate until it's done.
 */
 	if (state != CALIBRATING_MAX && state != CALIBRATING_MIN && state != STOP){
-		calibrate_time = in;
 		state = CALIBRATING_MAX;
 		calibrate_limit_value = 0;
 		calibrate_last_time = millis();
