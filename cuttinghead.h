@@ -10,11 +10,8 @@
 #define PISTON_CALIBRATE_TIME 		3000			//amount of ticks that the analog read value must remain constant to consider the piston static
 #define	PISTON_P_BOUNDARY			5		//size of the area where the piston works in linear mode when on POS_MODE state
 
-#define MOTOR_MAX_RPM 55
 #define MOTOR_GEAR_RATIO 99
 #define MOTOR_CPR 12
-#define MOTOR_CALIBRATION_TICKS 5			//how many ticks does the rpm have to stay stable for it to be counted as max (a tick happens every P_MOTOR_RPM_UPDATE_TIME milliseconds)
-#define MOTOR_RPM_UPDATE_TIME 1000		//how many milliseconds have to pass to calculate the new rpm
 
 #define CH_BASE1 53.2
 #define CH_BASE2 45
@@ -83,47 +80,36 @@ public:
 class motor {
 private:
 	//motor state variables
-	float			target_rpm = 0;											//objective rpm of motor
-	float			current_rpm;											//current rpm of motor
-	float			max_rpm = MOTOR_MAX_RPM;								//max rpm that the motor can reach with empty load (use calibrate() or calibrate_lock() to get the true value or set_max_rpm() for aproximations)
+	int		target_speed;											//objective rpm of motor
+	float	current_rpm;											//current rpm of motor
 	//calibrate method variables
-	enum states : char {INIT, RUNNING, CALIBRATING, STOP };
-	states			state					= INIT;							//variable used to let the program know that a calibration is taking place (state=1) or not (state=0)
-	float			calibrate_limit_value	= 0;							//max rpm value saved in calibration
-	int				calibrate_counter		= 0;							//internal variable used to count for how many rpm_updates the rpm hasnt increased past calibrate_limit_value
-	int				calibrate_ticks			= P_MOTOR_CALIBRATION_TICKS;
+	enum states : char { RUNNING, STOP };
+	states	state = RUNNING;							//variable used to let the program know that a calibration is taking place (state=1) or not (state=0)
 	//rpm calculation variables
-	int				last_time		= millis();								//saved time used in rpm_update function to count how much time passed since last update
-	int 			update_time		= P_MOTOR_RPM_UPDATE_TIME;				//time in ms between rpm updates
+	unsigned long	rpm_last_time = millis();				//saved time used in rpm_update function to count how much time passed since last update
+	unsigned long	rpm_update_time = MOTOR_RPM_UPDATE_TIME;
 	volatile int	encoder_ticks	= 0;									//amount of ticks counted by encoder1 since last rpm update
-	float			gear_ratio		= P_MOTOR_DEFAULT_GEAR_RATIO;			//how many revolutions the motor makes for one output shaft revolution 
-	float			encoder_cpr		= P_MOTOR_DEFAULT_CPR;					//amount of notches in a single encoder of the motor
+	float			gear_ratio;			//how many revolutions the motor makes for one output shaft revolution 
+	float			encoder_cpr;					//amount of notches in a single encoder of the motor
 
 	int		update_rpm();														//updates the rpm if enough time has passed, returns 1 if rpm have been updated and 0 if not
-	void	controller(int &out_pwm);
+	void	controller(unsigned char &out_pwm);
 public:
-	motor();
+	motor(float gear_ratio, float encoder_cpr);
 	//setters
-	void set_target_rpm(float);		//absolute value of rpm (if its higher than max it will get constrained to max_rpm)
-	void set_target_speed(float);	//values between 0-1, speed is relative to max rpm
-	void set_max_rpm(float);		//manually set the max_rpm (used when the calibration is not wanted)
-	void set_update_time(int);		//set the update_time (time between rpm updates)
-	void set_gear_ratio(float);		//set the gear_ratio of the motor (motor rev/output shaft rev)
-	void set_encoder_cpr(float);	//set the encoder_cpr of the motor (count of notches in one encoder disk)
+	void	set_target_speed(int val);		//absolute value of rpm (if its higher than max it will get constrained to max_rpm)
+	void	set_rpm_update_time(unsigned int val);		//set the update_time (time between rpm updates)
+	void	set_gear_ratio(float val);		//set the gear_ratio of the motor (motor rev/output shaft rev)
+	void	set_encoder_cpr(float val);	//set the encoder_cpr of the motor (count of notches in one encoder disk)
 	//getters
-	float get_target_rpm();			//returns the target_rpm of the motor
-	float get_current_rpm();		//returns the current_rpm of the motor
-	float get_max_rpm();			//returns the max_rpm of the motor
-	int get_state();				//return current state of motor
-	int get_update_time();			//returns update_time
-	float get_gear_ratio();			//returns gear ratio
-	float get_encoder_cpr();		//returns encoder cpr
+	float	get_target_rpm();			//returns the target_rpm of the motor
+	float	get_current_rpm();		//returns the current_rpm of the motor
+	int		get_state();				//return current state of motor
 	//random methods
-	void calibrate();				//sets motor state to calibrate (returns -1 if its not posible to calibrate and 1 if success)
-	void stop();					//stops the motion and sets the state to 2 (error)
-	void start();					//sets state to 0 (normal working)
-	void update(int& out_pwm);		//PUT THIS ON VOID LOOP(), returns the state of the motor.
-	void encoder_handler();			//function to call from the handler of the motor in the main program
+	void	stop();					//stops the motion and sets the state to 2 (error)
+	void	start();					//sets state to 0 (normal working)
+	void	update(unsigned char &out_pwm, unsigned char &out_dir);	//PUT THIS ON VOID LOOP(), returns the state of the motor.
+	void	encoder_handler();			//function to call from the handler of the motor in the main program
 
 	friend class cutting_head;
 };
@@ -133,10 +119,10 @@ private:
 	piston piston1;
 	piston piston2;
 	motor drill;
-	float long1=CH_LONG1;
-	float long2=CH_LONG2;
-	float base1=CH_BASE1;
-	float base2=CH_BASE2;
+	float long1;
+	float long2;
+	float base1;
+	float base2;
 	float min_angle;
 	float max_angle;
 	void direct_kinematics(float p1,float p2, float& alfa, float& beta);
@@ -144,10 +130,8 @@ private:
 	enum states { INNIT, RUNNING, CALIBRATING, LOCK_CALIBRATING, STOP };
 	states state=RUNNING;
 public:
-	cutting_head();
+	cutting_head(float _long1, float _long2, float _base1, float _base2);
 	//setters
-	void set_dimensions(float _long1,float _long2, float _base1, float _base2);
-
 	void set_drill_target_rpm(float);
 	void set_drill_target_speed(float);
 	void set_drill_max_rpm(float);

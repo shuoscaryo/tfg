@@ -73,7 +73,7 @@ char	piston::set_pos(float input)
 {
 /*
 	Sets the position to where the piston will go.
-	Sets the state to POS_MODE if not in STOP state.
+	Sets the state to RUNNING.
 	Only works if the piston is not in STOP state.
 	If the position is out of range, it will be constrained.
 	Returns 1 on success or 0 if couldn't be set.
@@ -229,6 +229,7 @@ void	piston::update(unsigned int in_analog_pos, unsigned char& out_pwm, unsigned
 	if (state == INIT){
 		move(0, out_pwm, out_dir);
 		target_pos = current_pos = scale(in_analog_pos, analog_min, analog_max, min_pos, max_pos);
+		speed_last_time = millis();
 		target_speed = 0;
 		return;
 	}
@@ -275,68 +276,110 @@ void	piston::update(unsigned int in_analog_pos, unsigned char& out_pwm, unsigned
 	if (state == STOP)
 		move(0, out_pwm, out_dir);
 }
+
 /*											__
 						   ____ ___  ____  / /_____  _____
 						  / __ `__ \/ __ \/ __/ __ \/ ___/
 						 / / / / / / /_/ / /_/ /_/ / /
 						/_/ /_/ /_/\____/\__/\____/_/						*/
-//PRIVATE METHODS
+//private
 int motor::update_rpm()
 {
-	int time = millis();
-	if (time - last_time >= update_time) {
-		current_rpm = encoder_ticks * 60.0 / ((time - last_time) * gear_ratio * encoder_cpr) * 1000;
+/*
+	updates the current rpm value if enough time has passed.
+	returns 1 if the rpm value has been updated or 0 otherwise.
+*/
+	unsigned long time = millis();
+	if (time - rpm_last_time >= rpm_update_time) {
+		current_rpm = encoder_ticks * 60.0 / ((time - rpm_last_time) * gear_ratio * encoder_cpr) * 1000;
 		encoder_ticks = 0;
-		last_time = millis();
-		return 1;
+		rpm_last_time = millis();
+		return (1);
 	}
-	return 0;
+	return (0);
+}
+
+void	motor::controller(unsigned char &out_pwm)
+{
+/*
+	The controller is a PI, it calculates the current error of rpm, and sets an "out_pwm" according
+	to it and the accumulated error of previous ticks.
+	To avoid the sum of error to grow too much, if the pwm value is already max it won't add the 
+	new error.
+*/
 }
 //PUBLIC METHODS
-motor::motor() {}
+motor::motor(float _gear_ratio, float _encoder_cpr): gear_ratio(_gear_ratio), encoder_cpr(_encoder_cpr)
+{}
 
-void motor::set_target_rpm(float in) {target_rpm = in;}
-void motor::set_target_speed(float in) { set_target_rpm(scale(constrain(in,0,1),0,1,0,max_rpm)); }
-void motor::set_max_rpm(float in) { max_rpm = in; }
-void motor::set_update_time(int in) { update_time = in; }
-void motor::set_gear_ratio(float in){ gear_ratio=in;}
-void motor::set_encoder_cpr(float in){ encoder_cpr=in;}
+void motor::set_target_speed(int in)
+{
+/*
+	Sets the speed in rpm at which the motor has to spin.
+	Negative values mean spin in the other direction.
+*/
+	if (state != STOP)
+	{
+	state = RUNNING;
+	target_rpm = constrain(in, -255, 255);
+	}
+}
+
+void motor::set_rpm_update_time(unsigned int in)
+{
+/*
+	Time between rpm measurements.
+*/
+	rpm_update_time = in;
+}
+
+void motor::set_gear_ratio(float in)
+{
+/*
+	Set the gear ratio of the motor.
+	It is considered to be the number of spins of the motor/spins after reduction.
+	If the value is negative it will be changed to positive.
+	If the value is 0 it will be set to 1.
+	Eg. motor spins at 1000rpm, and after the reduction it spins at 100, then gear ratio is
+	1000 / 100 = 10
+*/
+	if (in < 0) gear_ratio = -in;
+	else if (in == 0)	gear_ratio = 1;
+	else gear_ratio = in;
+}
+
+void motor::set_encoder_cpr(float in)
+{
+/*
+	Sets the CPR of the motor. The CPR is the number of notches in an encoder disk of the motor.
+	If the value is negative it will be changed to positive.
+	If the value is 0 it will be set to 1.
+*/
+	if (in < 0) encoder_cpr = -in;
+	else if (in == 0)	encoder_cpr = 1;
+	else encoder_cpr = in;
+}
 
 float motor::get_target_rpm()	{ return target_rpm		;}
 float motor::get_current_rpm()	{ return current_rpm	;}
-float motor::get_max_rpm()		{ return max_rpm		;}
 int   motor::get_state()		{ return state			;}
-int	  motor::get_update_time()	{ return update_time	;}
-float motor::get_gear_ratio()	{ return gear_ratio		;}
-float motor::get_encoder_cpr()	{ return encoder_cpr	;}
 
-void motor::calibrate(int in) {
-	if (state == RUNNING) {
-		state = CALIBRATING;
-		calibrate_limit_value = 0;
-		calibrate_counter = 0;
-	}
+void motor::stop()
+{
+	state = STOP;
 }
-void motor::stop() { state = STOP; }
-void motor::start() { state = RUNNING; }
-void motor::update(int& out_pwm) {
-	if (state == RUNNING) {
-		update_rpm();
-		out_pwm = scale(constrain(target_rpm, 0, max_rpm), 0, max_rpm, 0, 255);
-	}
-	if (state == CALIBRATING) {
-		if (update_rpm())calibrate_counter++;
-		out_pwm = 255;
-		if (current_rpm > calibrate_limit_value) {		//if read value is greater than saved, save the new value and reset counter
-			calibrate_limit_value = current_rpm;
-			calibrate_counter = 0;
-		}
-		if (calibrate_counter >= calibrate_ticks) {	//if sample is big enough and there was no new highest value for a while save it
-			set_target_rpm(0);
-			out_pwm = 0;
-			max_rpm = current_rpm;
-			state = RUNNING;
-		}
+
+void motor::start()
+{
+	state = RUNNING;
+}
+
+void motor::update(unsigned char &out_pwm, unsigned char &out_dir)
+{
+	update_rpm();
+	if (state == RUNNING){
+		out_pwm = target_speed;
+		out_dir = target_speed > 0;
 	}
 	if (state == STOP) {
 		out_pwm = 0;
