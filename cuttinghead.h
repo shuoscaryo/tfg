@@ -1,14 +1,14 @@
 #pragma once
 #include "Arduino.h"
 
-#define PISTON_MAX_POS		152		//datasheet value
-#define PISTON_MIN_POS		102		//datasheet value
-#define PISTON_TOLERANCE	1
-#define	PISTON_ANALOG_MIN	0		//experimental value (tested reading the piston position pin at min extension)
-#define	PISTON_ANALOG_MAX	1024	//experimental value (tested reading the piston position pin at max extension)
-#define PISTON_SPEED_TIME	100		//time in miliseconds between speed measurement of the piston.
-#define PISTON_CALIBRATE_TIME 3000			//amount of ticks that the analog read value must remain constant to consider the piston static
-#define	PISTON_P_BOUNDARY	5		//size of the area where the piston works in linear mode when on POS_MODE state
+#define PISTON_MAX_POS				152		//datasheet value
+#define PISTON_MIN_POS				102		//datasheet value
+#define PISTON_TOLERANCE			1
+#define	PISTON_ANALOG_MIN			0		//experimental value (tested reading the piston position pin at min extension)
+#define	PISTON_ANALOG_MAX			1024	//experimental value (tested reading the piston position pin at max extension)
+#define PISTON_SPEED_UPDATE_TIME	100		//time in miliseconds between speed measurement of the piston.
+#define PISTON_CALIBRATE_TIME 		3000			//amount of ticks that the analog read value must remain constant to consider the piston static
+#define	PISTON_P_BOUNDARY			5		//size of the area where the piston works in linear mode when on POS_MODE state
 
 #define MOTOR_MAX_RPM 55
 #define MOTOR_GEAR_RATIO 99
@@ -21,56 +21,49 @@
 #define CH_LONG1 127
 #define CH_LONG2 120
 
-class piston;
-class motor;
 class cutting_head;
 
 class piston{
 private:
 	//piston mechanical values
-	float	target_pos;							//to what position should the piston move (cm)
-	float	current_pos;						//current position of the piston (cm)
-	float	target_speed;						//value between -1 and 1
-	float	current_speed;
-	float	max_pos = PISTON_MAX_POS;		//maximum extension value of the piston (mm)
-	float	min_pos = PISTON_MIN_POS;		//minimum extension value of the piston (mm)
+	float	target_pos;							//to what position should the piston move 
+	float	current_pos;						//current position of the piston
+	float	target_speed = 1;					//values between 0 and 1. (1:pwm 255 and 0:pwm 0)
+	float	current_speed;						//piston speed in units/second.
+	float	max_pos;							//maximum extension value of the piston (mm)
+	float	min_pos;							//minimum extension value of the piston (mm)
 	//pos controller variables
 	float	P_boundary = PISTON_P_BOUNDARY;
-	float	pos_mode_speed = 1;
 	float	tolerance = PISTON_TOLERANCE;	//allowed error between current_pos and target_pos
 	//piston electrical values
-	int		analog_min = PISTON_ANALOG_MIN;	//lower value that pin_current_pos reads (0-1024) (when current_pos==min_pos)	
-	int		analog_max = PISTON_ANALOG_MAX;	//higher value that pin_current_pos reads (0-1024) (when current_pos==max_pos)
+	unsigned int	analog_min = PISTON_ANALOG_MIN;	//lower value that pin_current_pos reads (0-1024) (when current_pos==min_pos)	
+	unsigned int	analog_max = PISTON_ANALOG_MAX;	//higher value that pin_current_pos reads (0-1024) (when current_pos==max_pos)
 	//state variables
-	enum states : char { INIT, SPEED_MODE, POS_MODE, CALIBRATING_MAX, CALIBRATING_MIN, STOP };
+	enum states : char { INIT, RUNNING, CALIBRATING_START, CALIBRATING_MAX, CALIBRATING_MIN, STOP };
 	states	state=INIT;
-	int		calibrate_limit_value;
-	unsigned long calibrate_last_time = millis();
-	int		calibrate_time = PISTON_CALIBRATE_TIME;
+	unsigned int	calibrate_limit_value;
+	unsigned long	calibrate_last_time = millis();
+	unsigned long	calibrate_time = PISTON_CALIBRATE_TIME;
 	//speed calculation
-	unsigned long	last_time = millis();
-	unsigned long	speed_update_time = PISTON_SPEED_TIME;
+	unsigned long	speed_last_time = millis();
+	unsigned long	speed_update_time = PISTON_SPEED_UPDATE_TIME;
 
-	void	move(int input,int& out_pwm, int &out_dir);
-	void	pos_controller(int in_analog_pos, int &out_pwm, int &out_dir);
-	void	speed_controller(int in_analog_pos, int &out_pwm, int &out_dir);
+	void	move(float input,unsigned char &out_pwm, unsigned char &out_dir);
+	void	controller(unsigned int in_analog_pos, unsigned char &out_pwm, unsigned char &out_dir);
 public:
-	piston();
+	piston(float min_pos, float max_pos);
 	//setters	
-	float	set_pos(float val);				//this one controls where the piston will go
-	float	set_pos_mode_speed(float val);
-	float	set_speed(float val);
+	char	set_pos(float val);				//this one controls where the piston will go
+	void	set_speed(float val);
 	void	set_speed_update_time(unsigned long val);
 	void	set_P_boundary(float val);
 	void	set_tolerance(float val);
-	void	set_pos_limits(float min, float max);
-	void	set_analog_limits(int min, int max);			//sets the limit value of the analog values read from the piston
+	char	set_pos_limits(float min, float max);
+	char	set_analog_limits(int min, int max);			//sets the limit value of the analog values read from the piston
 	void	set_calibration_time(unsigned int val);
 	//getters
 	float	get_target_pos		();
 	float	get_current_pos		();
-	float	get_pos_mode_speed	();
-	float	get_target_speed	();
 	float	get_current_speed	();
 	float	get_max_pos			();
 	float	get_min_pos			();
@@ -90,24 +83,24 @@ public:
 class motor {
 private:
 	//motor state variables
-	float			target_rpm = 0;													//objective rpm of motor
-	float			current_rpm;													//current rpm of motor
+	float			target_rpm = 0;											//objective rpm of motor
+	float			current_rpm;											//current rpm of motor
 	float			max_rpm = MOTOR_MAX_RPM;								//max rpm that the motor can reach with empty load (use calibrate() or calibrate_lock() to get the true value or set_max_rpm() for aproximations)
 	//calibrate method variables
-	enum states : char { RUNNING, CALIBRATING, STOP };
-	states			state					= RUNNING;								//variable used to let the program know that a calibration is taking place (state=1) or not (state=0)
-	float			calibrate_limit_value	= 0;									//max rpm value saved in calibration
-	int				calibrate_counter		= 0;									//internal variable used to count for how many rpm_updates the rpm hasnt increased past calibrate_limit_value
+	enum states : char {INIT, RUNNING, CALIBRATING, STOP };
+	states			state					= INIT;							//variable used to let the program know that a calibration is taking place (state=1) or not (state=0)
+	float			calibrate_limit_value	= 0;							//max rpm value saved in calibration
+	int				calibrate_counter		= 0;							//internal variable used to count for how many rpm_updates the rpm hasnt increased past calibrate_limit_value
 	int				calibrate_ticks			= P_MOTOR_CALIBRATION_TICKS;
 	//rpm calculation variables
-	int				last_time		= millis();										//saved time used in rpm_update function to count how much time passed since last update
-	int 			update_time		= P_MOTOR_RPM_UPDATE_TIME;						//time in ms between rpm updates
-	volatile int	encoder_ticks	= 0;											//amount of ticks counted by encoder1 since last rpm update
-	float			gear_ratio		= P_MOTOR_DEFAULT_GEAR_RATIO;					//how many revolutions the motor makes for one output shaft revolution 
-	float			encoder_cpr		= P_MOTOR_DEFAULT_CPR;							//amount of notches in a single encoder of the motor
+	int				last_time		= millis();								//saved time used in rpm_update function to count how much time passed since last update
+	int 			update_time		= P_MOTOR_RPM_UPDATE_TIME;				//time in ms between rpm updates
+	volatile int	encoder_ticks	= 0;									//amount of ticks counted by encoder1 since last rpm update
+	float			gear_ratio		= P_MOTOR_DEFAULT_GEAR_RATIO;			//how many revolutions the motor makes for one output shaft revolution 
+	float			encoder_cpr		= P_MOTOR_DEFAULT_CPR;					//amount of notches in a single encoder of the motor
 
-	int	 update_rpm();																//updates the rpm if enough time has passed, returns 1 if rpm have been updated and 0 if not
-	void	controller();
+	int		update_rpm();														//updates the rpm if enough time has passed, returns 1 if rpm have been updated and 0 if not
+	void	controller(int &out_pwm);
 public:
 	motor();
 	//setters
@@ -148,7 +141,7 @@ private:
 	float max_angle;
 	void direct_kinematics(float p1,float p2, float& alfa, float& beta);
 	void inverse_kinematics(float alfa, float beta, float& p1, float &p2);
-	enum states { RUNNING, CALIBRATING, LOCK_CALIBRATING, STOP };
+	enum states { INNIT, RUNNING, CALIBRATING, LOCK_CALIBRATING, STOP };
 	states state=RUNNING;
 public:
 	cutting_head();
