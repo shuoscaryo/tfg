@@ -1,5 +1,4 @@
 #pragma once
-#include "Arduino.h"
 
 #define PISTON_MAX_POS				152		//datasheet value
 #define PISTON_MIN_POS				102		//datasheet value
@@ -129,7 +128,7 @@ private:
 	states state = RUNNING;
 public:
 	cutting_head(float _long1, float _long2, float _base1, float _base2,
-		float _piston_min, float _piston_max
+		float _piston_min, float _piston_max,
 		float _motor_gear_ratio, float _motor_CPR);
 	//setters
 	void set_drill_target_speed(float);
