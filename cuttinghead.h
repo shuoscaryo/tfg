@@ -55,7 +55,6 @@ public:
 	void	set_speed_update_time(unsigned long val);
 	void	set_P_boundary(float val);
 	void	set_tolerance(float val);
-	char	set_pos_limits(float min, float max);
 	char	set_analog_limits(int min, int max);			//sets the limit value of the analog values read from the piston
 	void	set_calibration_time(unsigned int val);
 	//getters
@@ -99,8 +98,6 @@ public:
 	//setters
 	void	set_target_speed(int val);		//absolute value of rpm (if its higher than max it will get constrained to max_rpm)
 	void	set_rpm_update_time(unsigned int val);		//set the update_time (time between rpm updates)
-	void	set_gear_ratio(float val);		//set the gear_ratio of the motor (motor rev/output shaft rev)
-	void	set_encoder_cpr(float val);	//set the encoder_cpr of the motor (count of notches in one encoder disk)
 	//getters
 	float	get_target_rpm();			//returns the target_rpm of the motor
 	float	get_current_rpm();		//returns the current_rpm of the motor
@@ -125,46 +122,40 @@ private:
 	float base2;
 	float min_angle;
 	float max_angle;
+
 	void direct_kinematics(float p1,float p2, float& alfa, float& beta);
 	void inverse_kinematics(float alfa, float beta, float& p1, float &p2);
-	enum states { INNIT, RUNNING, CALIBRATING, LOCK_CALIBRATING, STOP };
-	states state=RUNNING;
+	enum states { RUNNING, CALIBRATING, STOP };
+	states state = RUNNING;
 public:
-	cutting_head(float _long1, float _long2, float _base1, float _base2);
+	cutting_head(float _long1, float _long2, float _base1, float _base2,
+		float _piston_min, float _piston_max
+		float _motor_gear_ratio, float _motor_CPR);
 	//setters
-	void set_drill_target_rpm(float);
 	void set_drill_target_speed(float);
-	void set_drill_max_rpm(float);
-	void set_drill_update_time(int);
-	void set_drill_gear_ratio(float );
-	void set_drill_encoder_cpr(float);
+	void set_drill_update_time(unsigned int);
 
-	void set_piston_pos_limit(float min, float max);
 	void set_piston_tolerance(float);
 	void set_piston_analog_limit(int min, int max);
+	void set_piston_calibrate_time();
 	//getters
-	float get_long1();
-	float get_long2();
-	float get_base1();
-	float get_base2();
 	float get_min_angle();
 	float get_max_angle();
 
-	float get_drill_target_rpm();														//returns the target_rpm of the drill
 	float get_drill_current_rpm();														//returns the current_rpm of the drill
-	float get_drill_max_rpm();															//returns the max_rpm of the motor
 
 	float get_piston1_target_pos();
 	float get_piston1_current_pos();
+	float get_piston1_speed();
 	float get_piston2_target_pos();
 	float get_piston2_current_pos();
+	float get_piston2_speed();
 
 	int	  get_state();
 	//random methods
 	void set_pos_angle_abs(float alfa,float beta);
 	void set_pos_angle_relative(float, float);
-	void calibrate_lock(int drill_ticks=P_MOTOR_CALIBRATION_TICKS,int piston_time=CHP_CALIBRATE_TIME);
-	void calibrate(int drill_ticks = P_MOTOR_CALIBRATION_TICKS, int piston_time = CHP_CALIBRATE_TIME);
+	void calibrate();
 	void stop();
 	void start();
 	void update(int p1_analog_pos, int& p1_pwm, int& p1_dir,

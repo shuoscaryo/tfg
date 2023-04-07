@@ -132,20 +132,6 @@ float	piston::set_tolerance(float input)
 	else			tolerance = -input;
 }
 
-char	piston::set_pos_limits(float min, float max)
-{
-/*
-	Sets the limit positions of the piston.
-	If "min" is greater than "max", the limit values will still be set so that 
-	the minimum position is smaller than the maximum. 
-	If both values are the same, no assignment will be made.
-	Returns "1" if the assignment has been made and "0" otherwise.
-*/
-	if (min < max) 		{ min_pos = min; max_pos = max; return (1); }
-	else if (min > max)	{ min_pos = max; max_pos = min; return (1); }
-	else				return (0);
-}
-
 int	piston::set_analog_limits(int min, int max)
 {
 /*
@@ -333,33 +319,6 @@ void motor::set_rpm_update_time(unsigned int in)
 	rpm_update_time = in;
 }
 
-void motor::set_gear_ratio(float in)
-{
-/*
-	Set the gear ratio of the motor.
-	It is considered to be the number of spins of the motor/spins after reduction.
-	If the value is negative it will be changed to positive.
-	If the value is 0 it will be set to 1.
-	Eg. motor spins at 1000rpm, and after the reduction it spins at 100, then gear ratio is
-	1000 / 100 = 10
-*/
-	if (in < 0) gear_ratio = -in;
-	else if (in == 0)	gear_ratio = 1;
-	else gear_ratio = in;
-}
-
-void motor::set_encoder_cpr(float in)
-{
-/*
-	Sets the CPR of the motor. The CPR is the number of notches in an encoder disk of the motor.
-	If the value is negative it will be changed to positive.
-	If the value is 0 it will be set to 1.
-*/
-	if (in < 0) encoder_cpr = -in;
-	else if (in == 0)	encoder_cpr = 1;
-	else encoder_cpr = in;
-}
-
 float motor::get_target_rpm()	{ return target_rpm		;}
 float motor::get_current_rpm()	{ return current_rpm	;}
 int   motor::get_state()		{ return state			;}
@@ -416,42 +375,42 @@ void cutting_head::direct_kinematics(float p1, float p2, float& alfa, float& bet
 	beta *= 180 / pi;
 }
 //public
-cutting_head::cutting_head(){
-	direct_kinematics(piston1.get_max_pos(), piston2.get_min_pos(), min_angle, max_angle);
-}
-
-void cutting_head::set_dimensions(float _long1, float _long2, float _base1, float _base2) {
+cutting_head::cutting_head(float _long1, float _long2, float _base1, float _base2,
+	float _piston_min, float _piston_max,
+	float _motor_gear_ratio, float _motor_CPR):
+piston1(_piston_min, _piston_max), piston2(_piston_min, _piston_max), drill(_motor_gear_ratio, _motor_CPR)
+{
 	long1 = _long1;
 	long2 = _long2;
 	base1 = _base1;
 	base2 = _base2;
-	direct_kinematics(piston1.get_max_pos(), piston2.get_min_pos(), min_angle, max_angle);
+	direct_kinematics(_piston_min, _piston_max, min_angle, max_angle);
 }
 
-void cutting_head::set_drill_target_rpm		(float in) { drill.set_target_rpm(in)	;}
 void cutting_head::set_drill_target_speed	(float in) { drill.set_target_speed(in)	;}
-void cutting_head::set_drill_max_rpm		(float in) { drill.set_max_rpm(in)		;}
-void cutting_head::set_drill_update_time	(int   in) { drill.set_update_time(in)	;}
-void cutting_head::set_drill_gear_ratio		(float in) { drill.set_gear_ratio(in)	;}
-void cutting_head::set_drill_encoder_cpr	(float in) { drill.set_encoder_cpr(in)	;}
+void cutting_head::set_drill_update_time	(unsigned int   in) { drill.set_update_time(in)	;}
 
-void cutting_head::set_piston_pos_limit(float min,float max){ piston1.set_pos_limit(min,max); piston2.set_pos_limit(min,max); }
-void cutting_head::set_piston_tolerance(float in)			{ piston1.set_tolerance(in); piston2.set_tolerance(in); }
-void cutting_head::set_piston_analog_limit(int min, int max){ piston1.set_analog_limit(min, max); piston2.set_analog_limit(min, max);}
+void cutting_head::set_piston_tolerance(float in)
+{
+	piston1.set_tolerance(in);
+	piston2.set_tolerance(in);
+}
 
-float cutting_head::get_long1()					{ return long1						;}
-float cutting_head::get_long2()					{ return long2						;}
-float cutting_head::get_base1()					{ return base1						;}
-float cutting_head::get_base2()					{ return base2						;}
+void cutting_head::set_piston_analog_limit(int min, int max)
+{
+	piston1.set_analog_limit(min, max);
+	piston2.set_analog_limit(min, max);
+}
+
 float cutting_head::get_min_angle()				{ return min_angle*180/pi			;}
 float cutting_head::get_max_angle()				{ return max_angle*180/pi			;}
-float cutting_head::get_drill_target_rpm()		{ return drill.get_target_rpm()		;}													//returns the target_rpm of the drill
 float cutting_head::get_drill_current_rpm()		{ return drill.get_current_rpm()	;}														//returns the current_rpm of the drill
-float cutting_head::get_drill_max_rpm()			{ return drill.get_max_rpm()		;}															//returns the max_rpm of the cutting_head
 float cutting_head::get_piston1_target_pos()	{ return piston1.get_target_pos()	;}
 float cutting_head::get_piston1_current_pos()	{ return piston1.get_current_pos()	;}
+float cutting_head::get_piston1_speed()			{ return piston1.get_current_speed();}
 float cutting_head::get_piston2_target_pos()	{ return piston2.get_target_pos()	;}
 float cutting_head::get_piston2_current_pos()	{ return piston2.get_current_pos()	;}
+float cutting_head::get_piston2_speed()			{ return piston2.get_current_speed();}
 int	  cutting_head::get_state()					{ return state						;}
 
 void cutting_head::set_pos_angle_abs(float alfa, float beta) {
@@ -464,6 +423,7 @@ void cutting_head::set_pos_angle_abs(float alfa, float beta) {
 	piston1.set_target_pos(p1);
 	piston2.set_target_pos(p2);
 }
+
 void cutting_head::set_pos_angle_relative(float alfa, float beta) {
 	float percentage1 = (alfa +1) / 2;
 	alfa= min_angle + (max_angle-min_angle) * percentage1;
@@ -471,71 +431,40 @@ void cutting_head::set_pos_angle_relative(float alfa, float beta) {
 	beta = min_angle + (max_angle - min_angle) *percentage2;
 	set_pos_angle_abs(alfa,beta);
 }
-void cutting_head::calibrate_lock(int drill_ticks, int piston_time) {
-	if (state == RUNNING||state==CALIBRATING) { 
-		state = LOCK_CALIBRATING;
-		drill.calibrate(drill_ticks);
-		piston1.calibrate(piston_time);
-		piston2.calibrate(piston_time);
-	}
-}
-void cutting_head::calibrate(int drill_ticks, int piston_time) {
-	if (state == RUNNING||state==LOCK_CALIBRATING) {
+
+void cutting_head::calibrate() {
+	if (state == RUNNING) {
 		state = CALIBRATING;
-		drill.calibrate(drill_ticks);
-		piston1.calibrate(piston_time);
-		piston2.calibrate(piston_time);
+		piston1.calibrate();
+		piston2.calibrate();
 	} 
 }
-void cutting_head::stop() { state = STOP; }
-void cutting_head::start() { state = RUNNING; }
+void cutting_head::stop()
+{
+	state = STOP;
+	drill.stop();
+	piston1.stop();
+	piston2.stop();
+}
+void cutting_head::start()
+{ 
+	state = RUNNING;
+	drill.start();
+	piston1.begin();
+	piston2.begin();
+}
 void cutting_head::update(	int p1_analog_pos, int& p1_pwm, int& p1_dir,
 							int p2_analog_pos, int& p2_pwm, int& p2_dir,
 							int& drill_pwm){
-	if (state == RUNNING) {
-		drill.update(drill_pwm);
-		piston1.update(p1_analog_pos,p1_pwm,p1_dir);
-		piston2.update(p2_analog_pos,p2_pwm,p2_dir);
-	}
+	drill.update(drill_pwm);
+	piston1.update(p1_analog_pos,p1_pwm,p1_dir);
+	piston2.update(p2_analog_pos,p2_pwm,p2_dir);
 	if (state == CALIBRATING) {
-		int drill_state = drill.get_state();
 		int piston1_state=piston1.get_state();
 		int piston2_state=piston2.get_state();
 
-		if (drill_state != drill.RUNNING)drill.update(drill_pwm);
-		else drill.set_target_speed(0);
-
-		if (piston1_state != piston1.RUNNING)piston1.update(p1_analog_pos, p1_pwm, p1_dir);
-		else piston1.set_target_pos(piston1.get_current_pos());
-
-		if(piston2_state!=piston2.RUNNING)piston2.update(p2_analog_pos, p2_pwm, p2_dir);
-		else piston2.set_target_pos(piston2.get_current_pos());
-
-		if (drill_state == drill.RUNNING && piston1_state == piston1.RUNNING && piston2_state == piston2.RUNNING)state = RUNNING;
-	}
-	if (state == LOCK_CALIBRATING) {
-		int drill_state = drill.get_state();
-		int piston1_state = piston1.get_state();
-		int piston2_state = piston2.get_state();
-
-		if (drill_state != drill.RUNNING)drill.update(drill_pwm);
-		else { 
-			drill.set_target_speed(0);
-			if (piston1_state != piston1.RUNNING)piston1.update(p1_analog_pos, p1_pwm, p1_dir);
-			else {
-				piston1.set_target_pos(piston1.get_current_pos());
-				if (piston2_state != piston2.RUNNING)piston2.update(p2_analog_pos, p2_pwm, p2_dir);
-				else { 
-					piston2.set_target_pos(piston2.get_current_pos());
-					state = RUNNING;
-				}
-			}
-		}
-	}
-	if (state == STOP) {
-		drill.stop();
-		piston1.stop();
-		piston2.stop();
+		if (piston1_state == piston1.INIT && piston2_state == piston2.INIT)
+			state = RUNNING;
 	}
 }
 void cutting_head::drill_handler() { drill.encoder_handler(); }
