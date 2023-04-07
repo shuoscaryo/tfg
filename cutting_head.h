@@ -1,4 +1,5 @@
 #pragma once
+#include "arduino.h"
 
 #define PISTON_MAX_POS				152		//datasheet value
 #define PISTON_MIN_POS				102		//datasheet value
