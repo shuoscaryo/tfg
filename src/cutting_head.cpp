@@ -455,12 +455,8 @@ void cutting_head::update(
 	drill.update(drill_pwm, drill_dir);
 	piston1.update(p1_analog_pos,p1_pwm,p1_dir);
 	piston2.update(p2_analog_pos,p2_pwm,p2_dir);
-	if (state == CALIBRATING) {
-		int piston1_state=piston1.get_state();
-		int piston2_state=piston2.get_state();
-
-		if (piston1_state == piston1.INIT && piston2_state == piston2.INIT)
+	if (state == CALIBRATING) 
+		if (piston2.get_state() == piston1.INIT && piston1.get_state() == piston2.INIT)
 			state = RUNNING;
-	}
 }
 void cutting_head::drill_handler() { drill.encoder_handler(); }
