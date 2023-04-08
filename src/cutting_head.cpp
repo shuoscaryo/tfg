@@ -448,7 +448,7 @@ void cutting_head::start()
 	piston2.begin();
 }
 void cutting_head::update(	unsigned int p1_analog_pos, unsigned char& p1_pwm, unsigned char& p1_dir,
-							unsigned intt  p2_analog_pos, unsigned char& p2_pwm, unsigned char& p2_dir,
+							unsigned int  p2_analog_pos, unsigned char& p2_pwm, unsigned char& p2_dir,
 							unsigned char& drill_pwm, unsigned char& drill_dir){
 	drill.update(drill_pwm, drill_dir);
 	piston1.update(p1_analog_pos,p1_pwm,p1_dir);
