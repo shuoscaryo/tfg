@@ -1,6 +1,6 @@
 #pragma once
 #include "arduino.h"
-#define PISTON_TOLERANCE			1
+
 #define	PISTON_ANALOG_MIN			0		//experimental value (tested reading the piston position pin at min extension)
 #define	PISTON_ANALOG_MAX			1024	//experimental value (tested reading the piston position pin at max extension)
 #define PISTON_SPEED_UPDATE_TIME	100		//time in miliseconds between speed measurement of the piston.
@@ -22,7 +22,7 @@ private:
 	float	max_pos;							//maximum extension value of the piston (mm)
 	//pos controller variables
 	float	P_boundary = PISTON_P_BOUNDARY;
-	float	tolerance = PISTON_TOLERANCE;	//allowed error between current_pos and target_pos
+	float	tolerance = 1;	//allowed error between current_pos and target_pos
 	//piston electrical values
 	unsigned int	analog_min = PISTON_ANALOG_MIN;	//lower value that pin_current_pos reads (0-1024) (when current_pos==min_pos)	
 	unsigned int	analog_max = PISTON_ANALOG_MAX;	//higher value that pin_current_pos reads (0-1024) (when current_pos==max_pos)
