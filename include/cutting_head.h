@@ -148,8 +148,9 @@ public:
 	void calibrate();
 	void stop();
 	void start();
-	void update(unsigned int p1_analog_pos, unsigned char& p1_pwm, unsigned char& p1_dir,
-				unsigned int p2_analog_pos, unsigned char& p2_pwm, unsigned char& p2_dir,
-				unsigned char& drill_pwm, unsigned char& drill_dir);
+	void update(
+		unsigned int p1_analog_pos, unsigned char& p1_pwm, unsigned char& p1_dir,
+		unsigned int p2_analog_pos, unsigned char& p2_pwm, unsigned char& p2_dir,
+		unsigned char& drill_pwm, unsigned char& drill_dir);
 	void drill_handler();
 };

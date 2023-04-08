@@ -21,6 +21,17 @@
 #define PISTON2_INA_DIR 0x41
 #define MOTOR_INA_DIR 0x42
 
+#define P1_POS_PIN 9
+#define P1_DIR_PIN 5
+#define P1_PWM_PIN 2
+
+#define P2_POS_PIN 10
+#define P2_DIR_PIN 6
+#define P2_PWM_PIN 3
+
+#define M_DIR_PIN 4
+#define M_PWM_PIN 1
+
 gpio_exp gpio(GPIO_DIR);
 cutting_head ch(LONG1, LONG2, BASE1, BASE2,
 		PISTON_MIN_POS, PISTON_MAX_POS,
@@ -37,9 +48,27 @@ void setup()
 	p1_ina.begin();
 	p2_ina.begin();
 	m_ina.begin();
+	ch.calibrate();
+	//set the connection pin with the robot to 1.
+	pinMode(0, OUTPUT);
+	digitalWrite(0,true);
+	//
+	pinMode(P1_DIR_PIN,OUTPUT);
+	pinMode(P2_DIR_PIN,OUTPUT);
 }
 
 void loop()
 {
+	unsigned int p1_analog_in = analogRead(P1_POS_PIN);
+	unsigned int p2_analog_in = analogRead(P2_POS_PIN);
+	unsigned char p1_pwm, p1_dir, p2_pwm, p2_dir, m_pwm, m_dir;
 	update_neopixel(pixels);
+	ch.update(
+		p1_analog_in, p1_pwm, p1_dir,
+		p2_analog_in, p2_pwm, p2_dir,
+		m_pwm, m_dir);
+	analogWrite(P1_PWM_PIN,p1_pwm);
+	gpio.write(P1_DIR_PIN, p1_dir);
+	analogWrite(P2_PWM_PIN,p2_pwm);
+	digitalWrite(P2_DIR_PIN, p2_dir);
 }
