@@ -1,8 +1,5 @@
 #pragma once
 #include "arduino.h"
-
-#define PISTON_MAX_POS				152		//datasheet value
-#define PISTON_MIN_POS				102		//datasheet value
 #define PISTON_TOLERANCE			1
 #define	PISTON_ANALOG_MIN			0		//experimental value (tested reading the piston position pin at min extension)
 #define	PISTON_ANALOG_MAX			1024	//experimental value (tested reading the piston position pin at max extension)
@@ -10,14 +7,7 @@
 #define PISTON_CALIBRATE_TIME 		3000			//amount of ticks that the analog read value must remain constant to consider the piston static
 #define	PISTON_P_BOUNDARY			5		//size of the area where the piston works in linear mode when on POS_MODE state
 
-#define MOTOR_GEAR_RATIO 99
-#define MOTOR_CPR 12
 #define MOTOR_RPM_UPDATE_TIME 500
-
-#define CH_BASE1 53.2
-#define CH_BASE2 45
-#define CH_LONG1 127
-#define CH_LONG2 120
 
 class cutting_head;
 

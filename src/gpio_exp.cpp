@@ -9,8 +9,9 @@ gpio_exp::gpio_exp(uchar i2c_address)
 
 void	gpio_exp::write(uchar pos, uchar val)
 {
+	Wire.requestFrom(i2c_address, 1);
 	uchar gpio_val = Wire.read();
-	bitWrite(gpio_val, pos, val);
+	bitWrite(gpio_val, pos, !val);
 	Wire.beginTransmission(i2c_address);
 	Wire.write(gpio_val);
 	Wire.endTransmission();
@@ -18,7 +19,7 @@ void	gpio_exp::write(uchar pos, uchar val)
 
 uchar	gpio_exp::read(uchar pos)
 {
-	Wire.requestFrom(i2c_address, (uint8_t)1);
+	Wire.requestFrom(i2c_address, 1);
 	uchar gpio_val = Wire.read();
 	return bitRead(gpio_val, pos);
 }
