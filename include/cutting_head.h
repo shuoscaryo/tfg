@@ -113,8 +113,10 @@ private:
 	float base2;
 	float min_angle;
 	float max_angle;
+	float alpha;
+	float beta;
 
-	void direct_kinematics(float p1,float p2, float& alfa, float& beta);
+	void direct_kinematics(float p1,float p2, float& alpha, float& beta);
 	void inverse_kinematics(float alfa, float beta, float& p1, float &p2);
 	enum states { RUNNING, CALIBRATING, STOP };
 	states state = RUNNING;
@@ -131,6 +133,8 @@ public:
 	//getters
 	float get_min_angle();
 	float get_max_angle();
+	float	get_alpha();
+	float	get_beta();
 
 	float get_drill_current_rpm();														//returns the current_rpm of the drill
 

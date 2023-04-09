@@ -62,7 +62,9 @@ void loop()
 	unsigned int p1_analog_in = analogRead(P1_POS_PIN);
 	unsigned int p2_analog_in = analogRead(P2_POS_PIN);
 	unsigned char p1_pwm, p1_dir, p2_pwm, p2_dir, m_pwm, m_dir;
+
 	update_neopixel(pixels);
+
 	ch.update(
 		p1_analog_in, p1_pwm, p1_dir,
 		p2_analog_in, p2_pwm, p2_dir,
@@ -70,5 +72,23 @@ void loop()
 	analogWrite(P1_PWM_PIN,p1_pwm);
 	gpio.write(P1_DIR_PIN, p1_dir);
 	analogWrite(P2_PWM_PIN,p2_pwm);
-	digitalWrite(P2_DIR_PIN, p2_dir);
+	gpio.write(P2_DIR_PIN, p2_dir);
+	analogWrite(M_PWM_PIN, m_dir);
+	gpio.write(M_DIR_PIN, m_dir);
+
+	float p1_mA = p1_ina.getCurrent_mA();
+	float p2_mA = p2_ina.getCurrent_mA();
+	float m_mA = m_ina.getCurrent_mA();
+
+	Serial.print(ch.get_alpha());
+	Serial.print(",");
+	Serial.print(ch.get_beta());
+	Serial.print(",");
+	Serial.print(ch.get_drill_current_rpm());
+	Serial.print(",");
+	Serial.print(p1_mA);
+	Serial.print(",");
+	Serial.print(p2_mA);
+	Serial.print(",");
+	Serial.println(m_mA);
 }

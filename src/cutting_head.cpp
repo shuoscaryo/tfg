@@ -398,6 +398,8 @@ void cutting_head::set_piston_tolerance(float in)
 
 float cutting_head::get_min_angle()				{ return min_angle*180/pi			;}
 float cutting_head::get_max_angle()				{ return max_angle*180/pi			;}
+float cutting_head::get_alpha()					{ return alpha * 180 / pi			;}
+float cutting_head::get_beta()					{ return beta * 180 / pi			;}
 float cutting_head::get_drill_current_rpm()		{ return drill.get_current_rpm()	;}														//returns the current_rpm of the drill
 float cutting_head::get_piston1_target_pos()	{ return piston1.get_target_pos()	;}
 float cutting_head::get_piston1_current_pos()	{ return piston1.get_current_pos()	;}
@@ -455,6 +457,7 @@ void cutting_head::update(
 	drill.update(drill_pwm, drill_dir);
 	piston1.update(p1_analog_pos,p1_pwm,p1_dir);
 	piston2.update(p2_analog_pos,p2_pwm,p2_dir);
+	direct_kinematics(piston1.current_pos, piston2.current_pos, alpha, beta);
 	if (state == CALIBRATING) 
 		if (piston2.get_state() == piston1.INIT && piston1.get_state() == piston2.INIT)
 			state = RUNNING;
