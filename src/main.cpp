@@ -48,11 +48,9 @@ void setup()
 	p1_ina.begin();
 	p2_ina.begin();
 	m_ina.begin();
-	ch.calibrate();
-	//set the connection pin with the robot to 1.
+	//ch.calibrate();
 	pinMode(0, OUTPUT);
 	digitalWrite(0,true);
-	//
 	pinMode(P1_DIR_PIN,OUTPUT);
 	pinMode(P2_DIR_PIN,OUTPUT);
 }
