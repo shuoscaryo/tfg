@@ -1,25 +1,29 @@
 #include "gpio_exp.h"
 #include <Wire.h>
 
-gpio_exp::gpio_exp(uchar i2c_address)
+gpio_exp::gpio_exp(byte i2c_address)
 {
 	this->i2c_address = i2c_address;
-	Wire.begin();
 }
 
-void	gpio_exp::write(uchar pos, uchar val)
+void gpio_exp::update()
 {
-	Wire.requestFrom(i2c_address, 1);
-	uchar gpio_val = Wire.read();
-	bitWrite(gpio_val, pos, !val);
 	Wire.beginTransmission(i2c_address);
-	Wire.write(gpio_val);
+	Wire.write(values);
 	Wire.endTransmission();
 }
 
-uchar	gpio_exp::read(uchar pos)
+void	gpio_exp::write(byte pos, byte val)
 {
+	if(pos >= 0 && pos < 8)
+		bitWrite(values, pos, val > 0);
+}
+
+byte	gpio_exp::read(byte pos)
+{
+	byte gpio_val = 0;
 	Wire.requestFrom(i2c_address, 1);
-	uchar gpio_val = Wire.read();
+	while (Wire.available())
+		gpio_val = Wire.read();
 	return bitRead(gpio_val, pos);
 }

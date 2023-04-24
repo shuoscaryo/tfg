@@ -1,92 +1,71 @@
 #include "neopixel.h"
+#define RISE_TIME 5
+#define HOLD_TIME 1000
+#define FALL_TIME 2
 
+static unsigned int	color_val(unsigned char color)
+{
+	switch (color)
+	{
+		case 0:
+			return 0xff0000;
+		case 1:
+			return 0x00ff00;
+		case 2:
+			return 0x0000ff;
+		default:
+			return 0x000000;
+	}
+}
 
-
-void	update_neopixel(Adafruit_NeoPixel pixels)
+void	update_neopixel(Adafruit_NeoPixel &pixels)
 {
 	unsigned long time = millis();
 	static unsigned long last_time = millis();
-	static unsigned char state ;
+	static unsigned char state;
 	static unsigned char brightness;
+	static unsigned char color;
+	const unsigned char MAX_BRIGHTNESS = 50;
 
-	pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
-	switch (state) {
+	pixels.begin();
+	switch (state)
+	{
 		case 0:
-			if (time - last_time >= 5)
+			if (time - last_time >= RISE_TIME)
+			{
 				brightness ++;
-			if (brightness > 255)
-				brightness = 255;
-			pixels.fill(0xFF0000);
-			pixels.setBrightness(brightness);
-			if (brightness == 255)
+				last_time = millis();
+			}
+			if (brightness > MAX_BRIGHTNESS)
+				brightness = MAX_BRIGHTNESS;
+			if (brightness == MAX_BRIGHTNESS)
 				state++;
       		break;
     	case 1:
-			pixels.fill(0xFF0000);
-			pixels.setBrightness(255);
-			if (time - last_time >= 1000)
+			if (time - last_time >= HOLD_TIME)
+			{
 				state++;
+				last_time = millis();		
+			}
       		break;
     	case 2:
-			if (time - last_time >= 5)
+			if (time - last_time >= FALL_TIME)
+			{
 				brightness -= (brightness > 0);
-			pixels.fill(0xFF0000);
-			pixels.setBrightness(brightness);
+				last_time = millis();
+			}
 			if (brightness == 0)
-				state++;
-      		break;
-		case 3:
-			if (time - last_time >= 5)
-				brightness ++;
-			if (brightness > 255)
-				brightness = 255;
-			pixels.fill(0x00FF00);
-			pixels.setBrightness(brightness);
-			if (brightness == 255)
-				state++;
-      		break;
-    	case 4:
-			pixels.fill(0x00FF00);
-			pixels.setBrightness(255);
-			if (time - last_time >= 1000)
-				state++;
-      		break;
-    	case 5:
-			if (time - last_time >= 5)
-				brightness -= (brightness > 0);
-			pixels.fill(0x00FF00);
-			pixels.setBrightness(brightness);
-			if (brightness == 0)
-				state++;
-      		break;
-		case 6:
-			if (time - last_time >= 5)
-				brightness ++;
-			if (brightness > 255)
-				brightness = 255;
-			pixels.fill(0x0000FF);
-			pixels.setBrightness(brightness);
-			if (brightness == 255)
-				state++;
-      		break;
-    	case 7:
-			pixels.fill(0x0000FF);
-			pixels.setBrightness(255);
-			if (time - last_time >= 1000)
-				state++;
-      		break;
-    	case 8:
-			if (time - last_time >= 5)
-				brightness -= (brightness > 0);
-			pixels.fill(0x0000FF);
-			pixels.setBrightness(brightness);
-			if (brightness == 0)
+			{
+				color = (color + 1) % 3;
 				state = 0;
-      		break;
-    	default:
-			pixels.fill(0x000000);
-      		break;
+			}
+			break;
+		   	default:
+			state = 0;
+			color = 0;
+			break;
 	}
-	last_time = millis();
+	pixels.fill(color_val(color));
+	pixels.setBrightness(brightness);
     pixels.show();
 }

@@ -1,14 +1,14 @@
 #pragma once
 #include "Arduino.h"
 
-typedef unsigned char uchar;
-
 class gpio_exp{
 private:
-	uchar	i2c_address;
+	byte	values;
+	byte	i2c_address;
 public:
-	gpio_exp(uchar i2c_address);
+	gpio_exp(byte i2c_address);
 
-	void	write(uchar pos, uchar val);
-	uchar	read(uchar pos);
+	void	update();
+	void	write(byte pos, byte val);
+	byte	read(byte pos);
 };

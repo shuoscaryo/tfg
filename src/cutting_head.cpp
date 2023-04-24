@@ -58,10 +58,10 @@ void	piston::controller(unsigned int in_analog_pos, unsigned char &out_pwm, unsi
 		out_pwm = 0;
 	else
 	{
-		if(P_boundary && abs_dif < P_boundary)
-			out_pwm = target_speed * 255 * ft_constrain(abs_dif / P_boundary, 0 , 1);
+		if(P_area > tolerance && abs_dif < P_area)
+			out_pwm = (max_pwm - min_pwm) / (P_area - tolerance) * (abs_dif - tolerance) + min_pwm;
 		else
-			out_pwm = target_speed * 255;
+			out_pwm = max_pwm;
 		out_dir = dif > 0;
 	}
 }
@@ -78,47 +78,57 @@ char	piston::set_pos(float input)
 	If the position is out of range, it will be constrained.
 	Returns 1 on success or 0 if couldn't be set.
 */
-	if (state != STOP)
+	if (state == INIT || state == RUNNING)
 	{
 		state = RUNNING;
-		input = ft_constrain (input, min_pos, max_pos);
+		input = ft_constrain(input, min_pos, max_pos);
 		target_pos = input;
 		return (1);
 	}
 	return (0);
 }
 
-void	piston::set_speed(float input)
+void	piston::set_max_pwm(unsigned char input)
 {
 /*
-	Sets the speed at which the piston will move when going to a position.
-	"input" will be constrained between 0 and 1, equivalent to a percentage of max speed.
-	Returns the value set.
+	Sets the maximum pwm at which the piston will move.
+	If max_pwm is smaller than min_pwm. The values are swapped.
 */
-	input = ft_constrain(input, 0, 1);
-	target_speed = input;
+	max_pwm = input;
+	if (max_pwm < min_pwm)
+	{
+		auto temp = max_pwm;
+		max_pwm = min_pwm;
+		min_pwm = temp;
+	}
 }
 
-void	piston::set_speed_update_time(unsigned long input)
+void	piston::set_min_pwm(unsigned char input)
 {
 /*
-	Sets the time in milliseconds between speed measurements.
-	Lower times mean more updates but less precision.
+	Sets the minimum pwm that allows the piston to move.
+	If max_pwm is smaller than min_pwm. The values are swapped.
 */
-	speed_update_time = input;
+	min_pwm = input;
+	if (max_pwm < min_pwm)
+	{
+		auto temp = max_pwm;
+		max_pwm = min_pwm;
+		min_pwm = temp;
+	}
 }
 
-void	piston::set_P_boundary(float val)
+void	piston::set_P_area(float val)
 {
 /*
 	Sets the distance from the "target_pos" where the piston will work in proportional mode.
 	Outside of this area it will move at it's max set speed.
 	If the input value is negative it will be converted to positive.
-	Eg. if the target position is 100, and the P_boundary is 5, the area in (95,105) will be
+	Eg. if the target position is 100, and the P_area is 5, the area in (95,105) will be
 	the proportional area.
 */
-	if (val < 0) P_boundary = -val;
-	else	P_boundary = val;
+	if (val < 0) P_area = -val;
+	else	P_area = val;
 }
 
 void	piston::set_tolerance(float input)
@@ -132,7 +142,7 @@ void	piston::set_tolerance(float input)
 	else			tolerance = -input;
 }
 
-char	piston::set_analog_limits(int min, int max)
+void	piston::set_analog_limits(int min, int max)
 {
 /*
 	Sets the limit values read of the potentiometer of the piston.
@@ -141,9 +151,8 @@ char	piston::set_analog_limits(int min, int max)
 	If both values are the same, no assignment will be made.
 	Returns "1" if the assignment has been made and "0" otherwise.
 */
-	if (min < max)		{ analog_min = min; analog_max = max; return (1); }
-	else if (min > max)	{ analog_min = max; analog_max = min; return (1); }
-	else				return (0);
+	if (min < max)		{ analog_min = min; analog_max = max; }
+	else if (min > max)	{ analog_min = max; analog_max = min; }
 }
 
 void	piston::set_calibration_time(unsigned int val)
@@ -156,16 +165,30 @@ void	piston::set_calibration_time(unsigned int val)
 	calibrate_time = val;
 }
 
+void	piston::set_speed_update_time(unsigned long input)
+{
+/*
+	Sets the time in milliseconds between speed measurements.
+	Lower times mean more updates but less precision.
+*/
+	speed_update_time = input;
+}
+
 // these functions return the requested values from the piston.
-float	piston::get_target_pos()		{return target_pos		;}
-float	piston::get_current_pos()		{return current_pos		;}
-float	piston::get_current_speed()		{return current_speed	;}
-float	piston::get_max_pos()			{return max_pos			;}
-float	piston::get_min_pos()			{return min_pos			;}
-float	piston::get_tolerance()			{return tolerance		;}
-float	piston::get_analog_min()		{return analog_min		;}
-float	piston::get_analog_max()		{return analog_max		;}
-int		piston::get_state()				{return state			;}
+float			piston::get_target_pos()		{return target_pos;}
+float			piston::get_current_pos()		{return current_pos;}
+float			piston::get_current_speed()		{return current_speed;}
+unsigned char	piston::get_max_pwm()			{return max_pwm;}
+unsigned char	piston::get_min_pwm()			{return min_pwm;}
+float			piston::get_P_area()			{return P_area;}
+float			piston::get_tolerance()			{return tolerance;}
+float			piston::get_min_pos()			{return min_pos;}
+float			piston::get_max_pos()			{return max_pos;}
+unsigned int	piston::get_analog_min()		{return analog_min;}
+unsigned int	piston::get_analog_max()		{return analog_max;}
+int				piston::get_state()				{return state;}
+unsigned long	piston::get_calibrate_time()	{return calibrate_time;}
+unsigned long	piston::get_speed_update_time()	{return speed_update_time;}
 
 void	piston::calibrate ()
 {
@@ -216,7 +239,6 @@ void	piston::update(unsigned int in_analog_pos, unsigned char& out_pwm, unsigned
 		move(0, out_pwm, out_dir);
 		target_pos = current_pos = scale(in_analog_pos, analog_min, analog_max, min_pos, max_pos);
 		speed_last_time = millis();
-		target_speed = 0;
 		return;
 	}
 // This part updates the "current_pos" and "current_speed" variables of the piston
@@ -237,7 +259,7 @@ void	piston::update(unsigned int in_analog_pos, unsigned char& out_pwm, unsigned
 		calibrate_last_time = millis();
 	}
 	if (state == CALIBRATING_MAX) {							//move the piston only if its not being calibrated
-		move(target_speed,out_pwm,out_dir);
+		move(max_pwm,out_pwm,out_dir);
 		if (in_analog_pos > calibrate_limit_value) {			//if read value is greater than saved, save the new value and reset counter
 			calibrate_limit_value = in_analog_pos;
 			calibrate_last_time = current_time;
@@ -249,7 +271,7 @@ void	piston::update(unsigned int in_analog_pos, unsigned char& out_pwm, unsigned
 		}
 	}
 	if (state == CALIBRATING_MIN) {											//move the piston only if its not being calibrated
-		move(-target_speed,out_pwm,out_dir);
+		move(-max_pwm,out_pwm,out_dir);
 		if (in_analog_pos < calibrate_limit_value) {			//if read value is greater than saved, save the new value and reset counter
 			calibrate_limit_value = in_analog_pos;
 			calibrate_last_time = current_time;
@@ -298,17 +320,13 @@ void	motor::controller(unsigned char &out_pwm)
 motor::motor(float _gear_ratio, float _encoder_cpr): gear_ratio(_gear_ratio), encoder_cpr(_encoder_cpr)
 {}
 
-void motor::set_target_speed(int in)
+void motor::set_target_pwm(int in)
 {
 /*
 	Sets the speed in rpm at which the motor has to spin.
 	Negative values mean spin in the other direction.
 */
-	if (state != STOP)
-	{
-	state = RUNNING;
-	target_speed = ft_constrain(in, -255, 255);
-	}
+	target_pwm = ft_constrain(in, -255, 255);
 }
 
 void motor::set_rpm_update_time(unsigned long in)
@@ -319,30 +337,14 @@ void motor::set_rpm_update_time(unsigned long in)
 	rpm_update_time = in;
 }
 
-float motor::get_target_rpm()	{ return target_speed		;}
-float motor::get_current_rpm()	{ return current_rpm	;}
-int   motor::get_state()		{ return state			;}
-
-void motor::stop()
-{
-	state = STOP;
-}
-
-void motor::start()
-{
-	state = RUNNING;
-}
+float motor::get_target_pwm()	{ return target_pwm;}
+float motor::get_current_rpm()	{ return current_rpm;}
 
 void motor::update(unsigned char &out_pwm, unsigned char &out_dir)
 {
 	update_rpm();
-	if (state == RUNNING){
-		out_pwm = target_speed;
-		out_dir = target_speed > 0;
-	}
-	if (state == STOP) {
-		out_pwm = 0;
-	}
+	out_pwm = target_pwm;
+	out_dir = target_pwm > 0;
 }
 void motor::encoder_handler() { encoder_ticks++; }
 
@@ -378,28 +380,87 @@ void cutting_head::direct_kinematics(float p1, float p2, float& alfa, float& bet
 cutting_head::cutting_head(float _long1, float _long2, float _base1, float _base2,
 	float _piston_min, float _piston_max,
 	float _motor_gear_ratio, float _motor_CPR):
-piston1(_piston_min, _piston_max), piston2(_piston_min, _piston_max), drill(_motor_gear_ratio, _motor_CPR)
+drill(_motor_gear_ratio, _motor_CPR), piston1(_piston_min, _piston_max), piston2(_piston_min, _piston_max)
 {
 	long1 = _long1;
 	long2 = _long2;
 	base1 = _base1;
 	base2 = _base2;
-	direct_kinematics(_piston_min, _piston_max, min_angle, max_angle);
+	direct_kinematics(_piston_max, _piston_min, min_angle, max_angle);
 }
 
-void cutting_head::set_drill_target_speed	(float in) {drill.set_target_speed(in);}
-void cutting_head::set_drill_update_time	(unsigned long in) {drill.set_rpm_update_time(in);}
+void cutting_head::set_drill_target_pwm	(unsigned char in) 		{drill.set_target_pwm(in);}
+void cutting_head::set_drill_rpm_update_time	(unsigned long in) {drill.set_rpm_update_time(in);}
 
-void cutting_head::set_piston_tolerance(float in)
+void	cutting_head::set_piston_max_pwm			(unsigned char val)
 {
-	piston1.set_tolerance(in);
-	piston2.set_tolerance(in);
+	piston1.set_max_pwm(val);
+	piston2.set_max_pwm(val);
+}
+void	cutting_head::set_piston_min_pwm			(unsigned char val)
+{
+	piston1.set_min_pwm(val);
+	piston2.set_min_pwm(val);
+}
+void	cutting_head::set_piston_P_area				(float val)
+{
+	piston1.set_P_area(val);
+	piston2.set_P_area(val);
+}
+void	cutting_head::set_piston_tolerance			(float val)
+{
+	piston1.set_tolerance(val);
+	piston2.set_tolerance(val);
+}
+void	cutting_head::set_piston1_analog_limits		(int min, int max)
+{
+	piston1.set_analog_limits(min, max);
+}
+void	cutting_head::set_piston2_analog_limits		(int min, int max)
+{
+	piston2.set_analog_limits(min, max);
+}
+void	cutting_head::set_piston_calibration_time	(unsigned long val)
+{
+	piston1.set_calibration_time(val);
+	piston2.set_calibration_time(val);
+}
+void	cutting_head::set_piston_speed_update_time	(unsigned long val)
+{
+	piston1.set_speed_update_time(val);
+	piston2.set_speed_update_time(val);
 }
 
-float cutting_head::get_min_angle()				{ return min_angle*180/pi			;}
-float cutting_head::get_max_angle()				{ return max_angle*180/pi			;}
-float cutting_head::get_alpha()					{ return alpha * 180 / pi			;}
-float cutting_head::get_beta()					{ return beta * 180 / pi			;}
+void cutting_head::set_pos_abs(float alfa, float beta) {
+	float p1, p2;
+	if (alfa > max_angle)alfa = max_angle;
+	else if (alfa < min_angle)alfa = min_angle;
+	if (beta > max_angle)beta = max_angle;
+	else if (beta < min_angle)beta = min_angle;
+	inverse_kinematics(alfa,beta,p1,p2);
+	piston1.set_pos(p1);
+	piston2.set_pos(p2);
+}
+void cutting_head::set_pos_relative(float alfa, float beta) {
+	float percentage1 = (alfa + 1) / 2;
+	alfa = min_angle + (max_angle - min_angle) * percentage1;
+	float percentage2 = (beta + 1) / 2;
+	beta = min_angle + (max_angle - min_angle) *percentage2;
+	set_pos_abs(alfa, beta);
+}
+
+float cutting_head::get_min_angle()				{ return min_angle;}
+float cutting_head::get_max_angle()				{ return max_angle;}
+float cutting_head::get_alpha()
+{ 
+	direct_kinematics(piston1.current_pos, piston2.current_pos, alpha, beta);
+	return alpha;
+}
+float cutting_head::get_beta()
+{
+	direct_kinematics(piston1.current_pos, piston2.current_pos, alpha, beta);
+	return beta;
+}
 float cutting_head::get_drill_current_rpm()		{ return drill.get_current_rpm()	;}														//returns the current_rpm of the drill
 float cutting_head::get_piston1_target_pos()	{ return piston1.get_target_pos()	;}
 float cutting_head::get_piston1_current_pos()	{ return piston1.get_current_pos()	;}
@@ -409,43 +470,24 @@ float cutting_head::get_piston2_current_pos()	{ return piston2.get_current_pos()
 float cutting_head::get_piston2_speed()			{ return piston2.get_current_speed();}
 int	  cutting_head::get_state()					{ return state						;}
 
-void cutting_head::set_pos_angle_abs(float alfa, float beta) {
-	float p1, p2;
-	if (alfa > max_angle)alfa = max_angle;
-	else if (alfa < min_angle)alfa = min_angle;
-	if (beta> max_angle)beta = max_angle;
-	else if (beta< min_angle)beta = min_angle;
-	inverse_kinematics(alfa,beta,p1,p2);
-	piston1.set_pos(p1);
-	piston2.set_pos(p2);
-}
-
-void cutting_head::set_pos_angle_relative(float alfa, float beta) {
-	float percentage1 = (alfa +1) / 2;
-	alfa= min_angle + (max_angle-min_angle) * percentage1;
-	float percentage2 = (beta +1) / 2;
-	beta = min_angle + (max_angle - min_angle) *percentage2;
-	set_pos_angle_abs(alfa,beta);
-}
-
 void cutting_head::calibrate() {
 	if (state == RUNNING) {
 		state = CALIBRATING;
 		piston1.calibrate();
 		piston2.calibrate();
+		drill.set_target_pwm(0);
 	} 
 }
 void cutting_head::stop()
 {
 	state = STOP;
-	drill.stop();
+	drill.set_target_pwm(0);
 	piston1.stop();
 	piston2.stop();
 }
 void cutting_head::start()
 { 
 	state = RUNNING;
-	drill.start();
 	piston1.begin();
 	piston2.begin();
 }
@@ -457,9 +499,12 @@ void cutting_head::update(
 	drill.update(drill_pwm, drill_dir);
 	piston1.update(p1_analog_pos,p1_pwm,p1_dir);
 	piston2.update(p2_analog_pos,p2_pwm,p2_dir);
-	direct_kinematics(piston1.current_pos, piston2.current_pos, alpha, beta);
 	if (state == CALIBRATING) 
 		if (piston2.get_state() == piston1.INIT && piston1.get_state() == piston2.INIT)
 			state = RUNNING;
+	Serial.print("p1_pos:");
+	Serial.print(piston1.get_current_pos());
+	Serial.print(" p2_pos:");
+	Serial.print(piston2.get_current_pos());
 }
 void cutting_head::drill_handler() { drill.encoder_handler(); }
