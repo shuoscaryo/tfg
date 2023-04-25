@@ -35,6 +35,12 @@ void encoderISR()
 	ch.drill_handler();
 }
 
+union str_float
+{
+	float f;
+	unsigned char str[sizeof(float)];
+};
+
 void setup()
 {
 	Serial.begin(115200);
@@ -96,8 +102,17 @@ void loop()
 						str[count++] = Serial.read();
 						if (count == 9)
 						{
-							
+							if (check_crc(str,10))
+							{
+								str_float pos1, pos2;
+								for (int i = 0; i < 4; i++){
+									pos1.str[i] = str[i];
+									pos2.str[i] = str[i + 4];
+								}
+								ch.set_pos_relative(pos1.f, pos2.f);
+							}
 							delete[] str;
+							str = NULL;
 							serial_state = 0;
 						}
 						break;
