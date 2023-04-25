@@ -40,7 +40,7 @@ private:
 	unsigned int	analog_min = PISTON_ANALOG_MIN;	//Lower value that the potentiometer pin gives (when piston is fully contracted).
 	unsigned int	analog_max = PISTON_ANALOG_MAX;	//Higher value that the potentiometer pin gives (when piston is fully contracted).
 	//state variables
-	enum states : char { INIT, RUNNING, CALIBRATING_START, CALIBRATING_MAX, CALIBRATING_MIN, STOP };
+	enum states : char { INIT, RUNNING, CALIBRATING_START, CALIBRATING_MAX, CALIBRATING_MIN};
 	states	state = INIT;
 	unsigned int	calibrate_limit_value;
 	unsigned long	calibrate_last_time = millis();
@@ -80,7 +80,6 @@ public:
 	//random methods
 	void calibrate();	//automatically sets analog_min and max by doing a test moving the piston to its end positions
 	void stop();		//sets the stop state(for emergency or stuff).
-	void begin();		//sets the state to INIT, no need to call it on the setup.
 	void update(unsigned int in_analog_pos,unsigned char& out_pwm, unsigned char& out_dir);	//Put this on the loop
 	
 	friend class cutting_head;
@@ -131,7 +130,7 @@ private:
 
 	void direct_kinematics(float p1,float p2, float& alpha, float& beta);
 	void inverse_kinematics(float alfa, float beta, float& p1, float& p2);
-	enum states { RUNNING, CALIBRATING, STOP };
+	enum states { RUNNING, CALIBRATING};
 	states state = RUNNING;
 public:
 	cutting_head(
@@ -173,7 +172,6 @@ public:
 	//random methods
 	void calibrate();
 	void stop();
-	void start();
 	void update(
 		unsigned int p1_analog_pos, unsigned char& p1_pwm, unsigned char& p1_dir,
 		unsigned int p2_analog_pos, unsigned char& p2_pwm, unsigned char& p2_dir,

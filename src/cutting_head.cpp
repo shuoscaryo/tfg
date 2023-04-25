@@ -197,7 +197,7 @@ void	piston::calibrate ()
 	Will go to CALIBRATE state only if it is not CALIBRATING or STOP.
 	Multiple executions of the function wont reset the calibrate until it's done.
 */
-	if (state != CALIBRATING_MAX && state != CALIBRATING_MIN && state != STOP)
+	if (state != CALIBRATING_MAX && state != CALIBRATING_MIN)
 		state = CALIBRATING_START;
 }
 
@@ -205,14 +205,6 @@ void	piston::stop()
 {
 /*
 	Sets the state of the piston to stop, so it will stop moving and won't do anything until resetted.
-*/
-	state = STOP;
-}
-
-void	piston::begin()
-{
-/*
-	sets the piston's state to INIT to reset it.
 */
 	state = INIT;
 }
@@ -281,8 +273,6 @@ void	piston::update(unsigned int in_analog_pos, unsigned char& out_pwm, unsigned
 			state = INIT;
 		}
 	}
-	if (state == STOP)
-		move(0, out_pwm, out_dir);
 }
 
 /*											__
@@ -480,17 +470,11 @@ void cutting_head::calibrate() {
 }
 void cutting_head::stop()
 {
-	state = STOP;
 	drill.set_target_pwm(0);
 	piston1.stop();
 	piston2.stop();
 }
-void cutting_head::start()
-{ 
-	state = RUNNING;
-	piston1.begin();
-	piston2.begin();
-}
+
 void cutting_head::update(
 	unsigned int p1_analog_pos, unsigned char& p1_pwm, unsigned char& p1_dir,
 	unsigned int  p2_analog_pos, unsigned char& p2_pwm, unsigned char& p2_dir,
@@ -502,9 +486,5 @@ void cutting_head::update(
 	if (state == CALIBRATING) 
 		if (piston2.get_state() == piston1.INIT && piston1.get_state() == piston2.INIT)
 			state = RUNNING;
-	Serial.print("p1_pos:");
-	Serial.print(piston1.get_current_pos());
-	Serial.print(" p2_pos:");
-	Serial.print(piston2.get_current_pos());
 }
 void cutting_head::drill_handler() { drill.encoder_handler(); }

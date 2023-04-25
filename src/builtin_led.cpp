@@ -43,7 +43,5 @@ void	update_builtin_led()
 			brightness = 0;
 			break;
 	}
-	Serial.print("brightness:");
-	Serial.print(brightness);
 	analogWrite(11,255 - brightness);
 }

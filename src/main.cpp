@@ -4,13 +4,7 @@
 #include "Adafruit_INA219.h"
 #include "builtin_led.h"
 #include <Wire.h>
-
-
-
-#define PISTON_MAX_POS	152
-#define PISTON_MIN_POS	102
-
-
+#include <math.h>
 
 #define GPIO_DIR 0x20
 #define PISTON1_INA_DIR 0x40
@@ -34,7 +28,6 @@ Adafruit_INA219 p1_ina(PISTON1_INA_DIR);
 Adafruit_INA219 p2_ina(PISTON2_INA_DIR);
 Adafruit_INA219 m_ina(MOTOR_INA_DIR);
 cutting_head ch;
-unsigned int encoder_ticks = 0;
 
 void encoderISR()
 {
@@ -53,7 +46,6 @@ void setup()
 	digitalWrite(0,true);
 	attachInterrupt(digitalPinToInterrupt(M_ENC_PIN), encoderISR, RISING);
 }
-#include <math.h>
 
 void loop()
 {
@@ -70,16 +62,33 @@ void loop()
 
 	if (Serial.available())
 	{
-		state = Serial.read() - '0';
-		Serial.print("state:");
-		Serial.println(state);
+		unsigned char command = Serial.read() - '0';
+		switch (command)
+		{
+			case 0:
+				state = 0;
+				break;
+			case 1:
+				state = 1;
+				break;
+			case 2:
+				state = 2;
+				break;
+			case 3:
+				break;
+			default:
+				break;
+		}
 	}
 	switch (state)
 	{
 		case 0:
-			ch.set_pos_relative(0,0);
+			ch.stop();
 			break;
 		case 1:
+			ch.set_pos_relative(0,0);
+			break;
+		case 2:
 			if (time - last_time > 150)
 			{
 				angle += 5;
@@ -89,14 +98,15 @@ void loop()
 			}
 			ch.set_pos_relative(cos(angle * 3.141592 / 180.0), sin(angle * 3.141592 / 180.0));
 			break;
-		case 2:
-			ch.calibrate();
-			state= 3;
 		case 3:
+			ch.calibrate();
+			state= 4;
+		case 4:
 			if (ch.get_state() == 0)
 				state = 1;
 			break;
 		default:
+			state = 0;
 			break;
 	}
 
@@ -109,7 +119,7 @@ void loop()
 	analogWrite(M_PWM_PIN,m_pwm);
 	gpio.write(M_DIR_PIN, m_dir);
 	gpio.update();
-	Serial.print("m_rpm:");
+/*	Serial.print("m_rpm:");
 	Serial.print(ch.get_drill_current_rpm());
 	Serial.print(" p1_mA:");
 	Serial.print(p1_mA);
@@ -121,4 +131,5 @@ void loop()
 	Serial.print(ch.get_alpha());
 	Serial.print(" beta:");
 	Serial.println(ch.get_beta());
+	*/
 }
