@@ -5,6 +5,7 @@
 #include "builtin_led.h"
 #include <Wire.h>
 #include <math.h>
+#include "crc.h"
 
 #define GPIO_DIR 0x20
 #define PISTON1_INA_DIR 0x40
@@ -62,33 +63,58 @@ void loop()
 
 	if (Serial.available())
 	{
-		unsigned char command = Serial.read() - '0';
-		switch (command)
+		static unsigned char serial_state;
+		static unsigned char command;
+		static unsigned char *str;
+		static unsigned int count;
+
+		switch (serial_state)
 		{
 			case 0:
-				state = 0;
+				command = Serial.read() - '0'; 		////////////////////////////////////HAY QUE QUITAR -'0'
+				serial_state = 1;
 				break;
 			case 1:
-				state = 1;
-				break;
-			case 2:
-				state = 2;
-				break;
-			case 3:
-				break;
-			default:
-				break;
+				switch (command)
+				{
+					case 0:
+						ch.stop();
+						state = 0;
+						serial_state = 0;
+						break;
+					case 1:
+						ch.set_pos_relative(0,0);
+						state = 0;
+						serial_state = 0;
+						break;
+					case 2:
+						if(!str)
+						{
+							str = new unsigned char[10];
+							count = 0;
+						}
+						str[count++] = Serial.read();
+						if (count == 9)
+						{
+							
+							delete[] str;
+							serial_state = 0;
+						}
+						break;
+					case 3:
+						state = 1;
+						serial_state = 0;
+						break;
+					default:
+						break;
+				}
 		}
 	}
 	switch (state)
 	{
 		case 0:
-			ch.stop();
 			break;
 		case 1:
-			ch.set_pos_relative(0,0);
-			break;
-		case 2:
 			if (time - last_time > 150)
 			{
 				angle += 5;
@@ -98,10 +124,11 @@ void loop()
 			}
 			ch.set_pos_relative(cos(angle * 3.141592 / 180.0), sin(angle * 3.141592 / 180.0));
 			break;
-		case 3:
+		case 2:
 			ch.calibrate();
-			state= 4;
-		case 4:
+			state= 5;
+			break;
+		case 3:
 			if (ch.get_state() == 0)
 				state = 1;
 			break;
