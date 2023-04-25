@@ -2,7 +2,7 @@
 #include "cutting_head.h"
 #include "gpio_exp.h"
 #include "Adafruit_INA219.h"
-//#include "neopixel.h"
+#include "builtin_led.h"
 #include <Wire.h>
 
 
@@ -30,13 +30,9 @@
 #define M_PWM_PIN 1
 
 gpio_exp gpio(GPIO_DIR);
-/*cutting_head ch(LONG1, LONG2, BASE1, BASE2,
-		PISTON_MIN_POS, PISTON_MAX_POS,
-		MOTOR_GEAR_RATIO, MOTOR_CPR);*/
 Adafruit_INA219 p1_ina(PISTON1_INA_DIR);
 Adafruit_INA219 p2_ina(PISTON2_INA_DIR);
 Adafruit_INA219 m_ina(MOTOR_INA_DIR);
-//Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 cutting_head ch;
 unsigned int encoder_ticks = 0;
 
@@ -52,7 +48,6 @@ void setup()
 	p2_ina.begin();
 	m_ina.begin();
 	Wire.begin();
-//	pixels.begin();
 	pinMode(1,OUTPUT);
 	pinMode(0, OUTPUT);
 	digitalWrite(0,true);
@@ -69,11 +64,10 @@ void loop()
 	unsigned long time = millis();
 	static unsigned char state;
 	static float angle = 0;
-
-
 	float p1_mA = p1_ina.getCurrent_mA();
 	float p2_mA = p2_ina.getCurrent_mA();
 	float m_mA = m_ina.getCurrent_mA();
+
 	if (Serial.available())
 	{
 		state = Serial.read() - '0';
@@ -106,7 +100,7 @@ void loop()
 			break;
 	}
 
-//	update_neopixel(pixels);
+	update_builtin_led();
 	ch.update(p1_analog_in, p1_pwm, p1_dir, p2_analog_in, p2_pwm, p2_dir, m_pwm, m_dir);
 	analogWrite(P1_PWM_PIN,p1_pwm);
 	gpio.write(P1_DIR_PIN, p1_dir);
