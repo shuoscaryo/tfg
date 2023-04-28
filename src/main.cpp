@@ -113,10 +113,7 @@ void loop()
 						case COMMAND_SET_MOTOR_PWM:
 							if (IN_MESSAGE_SIZE >= 8)
 							{
-								float_to_byte pos;
-								for (int i = 0; i < 4; i++)
-									pos.str[i] = in_message[i + 2];
-								ch.set_drill_target_pwm(pos.f);
+								ch.set_drill_target_pwm(in_message[2]);
 								state = 1;
 							}
 							break;
