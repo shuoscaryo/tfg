@@ -54,7 +54,7 @@ private:
 public:
 	piston(float min_pos = PISTON_MIN_POS, float max_pos = PISTON_MAX_POS);
 	//setters	
-	char	set_pos					(float val);
+	void	set_pos					(float val);
 	void	set_max_pwm				(unsigned char val);
 	void	set_min_pwm				(unsigned char val);
 	void	set_P_area				(float val);

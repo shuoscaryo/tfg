@@ -69,7 +69,7 @@ void	piston::controller(unsigned int in_analog_pos, unsigned char &out_pwm, unsi
 piston::piston(float _min_pos, float _max_pos): min_pos(_min_pos), max_pos(_max_pos)
 {}
 
-char	piston::set_pos(float input)
+void	piston::set_pos(float input)
 {
 /*
 	Sets the position to where the piston will go.
@@ -78,14 +78,9 @@ char	piston::set_pos(float input)
 	If the position is out of range, it will be constrained.
 	Returns 1 on success or 0 if couldn't be set.
 */
-	if (state == INIT || state == RUNNING)
-	{
-		state = RUNNING;
-		input = ft_constrain(input, min_pos, max_pos);
-		target_pos = input;
-		return (1);
-	}
-	return (0);
+	state = RUNNING;
+	input = ft_constrain(input, min_pos, max_pos);
+	target_pos = input;
 }
 
 void	piston::set_max_pwm(unsigned char input)
@@ -470,6 +465,7 @@ void cutting_head::calibrate() {
 }
 void cutting_head::stop()
 {
+	state = RUNNING;
 	drill.set_target_pwm(0);
 	piston1.stop();
 	piston2.stop();

@@ -6,23 +6,7 @@
 #include <Wire.h>
 #include <math.h>
 #include "crc.h"
-
-#define GPIO_DIR 0x20
-#define PISTON1_INA_DIR 0x40
-#define PISTON2_INA_DIR 0x41
-#define MOTOR_INA_DIR 0x44
-
-#define P1_POS_PIN 9
-#define P1_DIR_PIN 1
-#define P1_PWM_PIN 2
-
-#define P2_POS_PIN 10
-#define P2_DIR_PIN 2
-#define P2_PWM_PIN 3
-
-#define M_ENC_PIN 8
-#define M_DIR_PIN 0
-#define M_PWM_PIN 1
+#include "defines.h"
 
 gpio_exp gpio(GPIO_DIR);
 Adafruit_INA219 p1_ina(PISTON1_INA_DIR);
@@ -30,16 +14,10 @@ Adafruit_INA219 p2_ina(PISTON2_INA_DIR);
 Adafruit_INA219 m_ina(MOTOR_INA_DIR);
 cutting_head ch;
 
-void encoderISR()
-{
-	ch.drill_handler();
-}
+unsigned char in_message[IN_MESSAGE_SIZE] = {0};
+unsigned char out_message[OUT_MESSAGE_SIZE] = {0};
 
-union str_float
-{
-	float f;
-	unsigned char str[sizeof(float)];
-};
+void encoderISR(){ch.drill_handler();}
 
 void setup()
 {
@@ -59,70 +37,189 @@ void loop()
 	unsigned int p1_analog_in = analogRead(P1_POS_PIN);
 	unsigned int p2_analog_in = analogRead(P2_POS_PIN);
 	unsigned char p1_pwm, p1_dir, p2_pwm, p2_dir, m_pwm, m_dir;
-	static unsigned long last_time = millis();
-	unsigned long time = millis();
-	static unsigned char state;
-	static float angle = 0;
 	float p1_mA = p1_ina.getCurrent_mA();
 	float p2_mA = p2_ina.getCurrent_mA();
 	float m_mA = m_ina.getCurrent_mA();
 
+	static unsigned long last_time = millis();
+	unsigned long time = millis();
+	static unsigned char state;
+	static float angle = 0;
+	static float circle_radius = 1;
+
 	if (Serial.available())
 	{
 		static unsigned char serial_state;
-		static unsigned char command;
-		static unsigned char *str;
 		static unsigned int count;
-
+		union float_to_byte
+		{
+			float f;
+			unsigned char str[sizeof(float)];
+		};
+		
 		switch (serial_state)
 		{
-			case 0:
-				command = Serial.read() - '0'; 		////////////////////////////////////HAY QUE QUITAR -'0'
-				serial_state = 1;
-				break;
-			case 1:
-				switch (command)
+			case 0: //look for message begin byte value.
+				if(IN_MESSAGE_SIZE >= 4)
 				{
-					case 0:
-						ch.stop();
-						state = 0;
-						serial_state = 0;
-						break;
-					case 1:
-						ch.set_pos_relative(0,0);
-						state = 0;
-						serial_state = 0;
-						break;
-					case 2:
-						if(!str)
-						{
-							str = new unsigned char[10];
-							count = 0;
-						}
-						str[count++] = Serial.read();
-						if (count == 9)
-						{
-							if (check_crc(str,10))
-							{
-								str_float pos1, pos2;
-								for (int i = 0; i < 4; i++){
-									pos1.str[i] = str[i];
-									pos2.str[i] = str[i + 4];
-								}
-								ch.set_pos_relative(pos1.f, pos2.f);
-							}
-							delete[] str;
-							str = NULL;
-							serial_state = 0;
-						}
-						break;
-					case 3:
-						state = 1;
-						serial_state = 0;
-						break;
-					default:
-						break;
+					in_message[0] = Serial.read();
+					if (in_message[0] == BEGIN_BYTE)
+					{
+						serial_state = 1;
+						count = 1;
+					}
 				}
+				break;
+			case 1:	//get message
+				in_message[count++] = Serial.read();
+				if (count == IN_MESSAGE_SIZE)
+				{
+					if (check_crc(in_message,IN_MESSAGE_SIZE))
+					{
+						switch (in_message[1])
+						{
+						case COMMAND_STOP:
+							ch.stop();
+							state = 0;
+							break;
+						case COMMAND_MOVE_TO_CENTER:
+							ch.set_pos_relative(0,0);
+							state = 0;
+							break;
+						case COMMAND_MOVE_TO_PLACE:
+							if(IN_MESSAGE_SIZE >= 12)
+							{
+								float_to_byte pos1, pos2;
+								for (int i = 0; i < 4; i++){
+									pos1.str[i] = in_message[i + 2];
+									pos2.str[i] = in_message[i + 6];
+								}
+								ch.set_pos_abs(pos1.f, pos2.f);
+								state = 0;
+							}
+							break;
+						case COMMAND_MOVE_CIRCLES:
+							if(IN_MESSAGE_SIZE >= 8)
+							{
+								float_to_byte pos;
+								for (int i = 0; i < 4; i++)
+									pos.str[i] = in_message[i + 2];
+								if (pos.f > 1.0) pos.f = 1.0;
+								if (pos.f < 0.0) pos.f = 0.0;
+								circle_radius = pos.f;
+								state = 1;
+							}
+							break;
+						case COMMAND_SET_MOTOR_PWM:
+							if (IN_MESSAGE_SIZE >= 8)
+							{
+								float_to_byte pos;
+								for (int i = 0; i < 4; i++)
+									pos.str[i] = in_message[i + 2];
+								ch.set_drill_target_pwm(pos.f);
+								state = 1;
+							}
+							break;
+						case COMMAND_REQUEST_ALFA:
+							if (OUT_MESSAGE_SIZE >= 8)
+							{
+								out_message[0] = BEGIN_BYTE;
+								out_message[1] = in_message[1];
+								float_to_byte pos;
+								pos.f = ch.get_alpha();
+								for (int i = 0; i < 4; i ++)
+									out_message[i + 2] = pos.str[i];
+								add_crc(out_message, OUT_MESSAGE_SIZE);
+								for (auto i: out_message)Serial.write(i);
+							}
+							break;
+						case COMMAND_REQUEST_BETA:
+							if (OUT_MESSAGE_SIZE >= 8)
+							{
+								out_message[0] = BEGIN_BYTE;
+								out_message[1] = in_message[1];
+								float_to_byte pos;
+								pos.f = ch.get_beta();
+								for (int i = 0; i < 4; i ++)
+									out_message[i + 2] = pos.str[i];
+								add_crc(out_message, OUT_MESSAGE_SIZE);
+								for (auto i: out_message)Serial.write(i);
+							}
+							break;
+						case COMMAND_REQUEST_RPM:
+							if (OUT_MESSAGE_SIZE >= 8)
+							{
+								out_message[0] = BEGIN_BYTE;
+								out_message[1] = in_message[1];
+								float_to_byte pos;
+								pos.f = ch.get_drill_current_rpm();
+								for (int i = 0; i < 4; i ++)
+									out_message[i + 2] = pos.str[i];
+								add_crc(out_message, OUT_MESSAGE_SIZE);
+								for (auto i: out_message)Serial.write(i);
+							}
+							break;
+						case COMMAND_REQUEST_INA_PISTON1:
+							if (OUT_MESSAGE_SIZE >= 8)
+							{
+								out_message[0] = BEGIN_BYTE;
+								out_message[1] = in_message[1];
+								float_to_byte pos;
+								pos.f = p1_mA;
+								for (int i = 0; i < 4; i ++)
+									out_message[i + 2] = pos.str[i];
+								add_crc(out_message, OUT_MESSAGE_SIZE);
+								for (auto i: out_message)Serial.write(i);
+							}
+							break;
+						case COMMAND_REQUEST_INA_PISTON2:
+							if (OUT_MESSAGE_SIZE >= 8)
+							{
+								out_message[0] = BEGIN_BYTE;
+								out_message[1] = in_message[1];
+								float_to_byte pos;
+								pos.f = p2_mA;
+								for (int i = 0; i < 4; i ++)
+									out_message[i + 2] = pos.str[i];
+								add_crc(out_message, OUT_MESSAGE_SIZE);
+								for (auto i: out_message)Serial.write(i);
+							}
+							break;
+						case COMMAND_REQUEST_INA_DRILL:
+							if (OUT_MESSAGE_SIZE >= 8)
+							{
+								out_message[0] = BEGIN_BYTE;
+								out_message[1] = in_message[1];
+								float_to_byte pos;
+								pos.f = m_mA;
+								for (int i = 0; i < 4; i ++)
+									out_message[i + 2] = pos.str[i];
+								add_crc(out_message, OUT_MESSAGE_SIZE);
+								for (auto i: out_message)Serial.write(i);
+							}
+							break;
+						case COMMAND_REQUEST_INA_ALL:
+							if (OUT_MESSAGE_SIZE >= 8)
+							{
+								out_message[0] = BEGIN_BYTE;
+								out_message[1] = in_message[1];
+								float_to_byte pos;
+								pos.f = m_mA + p1_mA + p2_mA;
+								for (int i = 0; i < 4; i ++)
+									out_message[i + 2] = pos.str[i];
+								add_crc(out_message, OUT_MESSAGE_SIZE);
+								for (auto i: out_message)Serial.write(i);
+							}
+							break;
+						default:
+							break;
+						}
+					}
+					serial_state = 0;
+				}
+				break;
+			default:
+				serial_state = 0;
 		}
 	}
 	switch (state)
@@ -137,19 +234,12 @@ void loop()
 					angle -= 360;
 				last_time = millis();
 			}
-			ch.set_pos_relative(cos(angle * 3.141592 / 180.0), sin(angle * 3.141592 / 180.0));
-			break;
-		case 2:
-			ch.calibrate();
-			state= 5;
-			break;
-		case 3:
-			if (ch.get_state() == 0)
-				state = 1;
+			ch.set_pos_relative(circle_radius * cos(angle * 3.141592 / 180.0),
+								circle_radius * sin(angle * 3.141592 / 180.0));
 			break;
 		default:
 			state = 0;
-			break;
+		break;
 	}
 
 	update_builtin_led();
@@ -161,17 +251,4 @@ void loop()
 	analogWrite(M_PWM_PIN,m_pwm);
 	gpio.write(M_DIR_PIN, m_dir);
 	gpio.update();
-/*	Serial.print("m_rpm:");
-	Serial.print(ch.get_drill_current_rpm());
-	Serial.print(" p1_mA:");
-	Serial.print(p1_mA);
-	Serial.print(" p2_mA:");
-	Serial.print(p2_mA);
-	Serial.print(" m_mA:");
-	Serial.print(m_mA);
-	Serial.print(" alfa:");
-	Serial.print(ch.get_alpha());
-	Serial.print(" beta:");
-	Serial.println(ch.get_beta());
-	*/
 }
