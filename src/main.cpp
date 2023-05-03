@@ -2,7 +2,7 @@
 #include "cutting_head.h"
 #include "gpio_exp.h"
 #include "Adafruit_INA219.h"
-#include "builtin_led.h"
+#include "neopixel.h"
 #include <Wire.h>
 #include <math.h>
 #include "crc.h"
@@ -13,6 +13,7 @@ Adafruit_INA219 p1_ina(PISTON1_INA_DIR);
 Adafruit_INA219 p2_ina(PISTON2_INA_DIR);
 Adafruit_INA219 m_ina(MOTOR_INA_DIR);
 cutting_head ch;
+Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 
 unsigned char in_message[IN_MESSAGE_SIZE] = {0};
 unsigned char out_message[OUT_MESSAGE_SIZE] = {0};
@@ -22,10 +23,12 @@ void encoderISR(){ch.drill_handler();}
 void setup()
 {
 	Serial.begin(115200);
+	Serial1.begin(115200);
 	p1_ina.begin();
 	p2_ina.begin();
 	m_ina.begin();
 	Wire.begin();
+	pixels.begin();
 	pinMode(1,OUTPUT);
 	pinMode(0, OUTPUT);
 	digitalWrite(0,true);
@@ -47,7 +50,7 @@ void loop()
 	static float angle = 0;
 	static float circle_radius = 1;
 
-	if (Serial.available())
+	if (Serial1.available())
 	{
 		static unsigned char serial_state;
 		static unsigned int count;
@@ -56,13 +59,13 @@ void loop()
 			float f;
 			unsigned char str[sizeof(float)];
 		};
-		
+
 		switch (serial_state)
 		{
 			case 0: //look for message begin byte value.
 				if(IN_MESSAGE_SIZE >= 4)
 				{
-					in_message[0] = Serial.read();
+					in_message[0] = Serial1.read();
 					if (in_message[0] == BEGIN_BYTE)
 					{
 						serial_state = 1;
@@ -71,7 +74,7 @@ void loop()
 				}
 				break;
 			case 1:	//get message
-				in_message[count++] = Serial.read();
+				in_message[count++] = Serial1.read();
 				if (count == IN_MESSAGE_SIZE)
 				{
 					if (check_crc(in_message,IN_MESSAGE_SIZE))
@@ -80,20 +83,26 @@ void loop()
 						{
 						case COMMAND_STOP:
 							ch.stop();
+							Serial.println("command stop");
 							state = 0;
 							break;
 						case COMMAND_MOVE_TO_CENTER:
 							ch.set_pos_relative(0,0);
+							Serial.println("command move center");
 							state = 0;
 							break;
 						case COMMAND_MOVE_TO_PLACE:
 							if(IN_MESSAGE_SIZE >= 12)
 							{
 								float_to_byte pos1, pos2;
+								Serial.print("command move to place ");
 								for (int i = 0; i < 4; i++){
 									pos1.str[i] = in_message[i + 2];
 									pos2.str[i] = in_message[i + 6];
 								}
+								Serial.print(pos1.f);
+								Serial.print(" ");
+								Serial.println(pos2.f);
 								ch.set_pos_abs(pos1.f, pos2.f);
 								state = 0;
 							}
@@ -102,10 +111,12 @@ void loop()
 							if(IN_MESSAGE_SIZE >= 8)
 							{
 								float_to_byte pos;
+								Serial.print("command move circles ");
 								for (int i = 0; i < 4; i++)
 									pos.str[i] = in_message[i + 2];
 								if (pos.f > 1.0) pos.f = 1.0;
 								if (pos.f < 0.0) pos.f = 0.0;
+								Serial.println(pos.f);
 								circle_radius = pos.f;
 								state = 1;
 							}
@@ -113,6 +124,8 @@ void loop()
 						case COMMAND_SET_MOTOR_PWM:
 							if (IN_MESSAGE_SIZE >= 8)
 							{
+								Serial.print("command set rpm ");
+								Serial.println((int) in_message[2]);
 								ch.set_drill_target_pwm(in_message[2]);
 								state = 1;
 							}
@@ -127,7 +140,7 @@ void loop()
 								for (int i = 0; i < 4; i ++)
 									out_message[i + 2] = pos.str[i];
 								add_crc(out_message, OUT_MESSAGE_SIZE);
-								for (auto i: out_message)Serial.write(i);
+								for (auto i: out_message)Serial1.write(i);
 							}
 							break;
 						case COMMAND_REQUEST_BETA:
@@ -140,7 +153,7 @@ void loop()
 								for (int i = 0; i < 4; i ++)
 									out_message[i + 2] = pos.str[i];
 								add_crc(out_message, OUT_MESSAGE_SIZE);
-								for (auto i: out_message)Serial.write(i);
+								for (auto i: out_message)Serial1.write(i);
 							}
 							break;
 						case COMMAND_REQUEST_RPM:
@@ -153,7 +166,7 @@ void loop()
 								for (int i = 0; i < 4; i ++)
 									out_message[i + 2] = pos.str[i];
 								add_crc(out_message, OUT_MESSAGE_SIZE);
-								for (auto i: out_message)Serial.write(i);
+								for (auto i: out_message)Serial1.write(i);
 							}
 							break;
 						case COMMAND_REQUEST_INA_PISTON1:
@@ -166,7 +179,7 @@ void loop()
 								for (int i = 0; i < 4; i ++)
 									out_message[i + 2] = pos.str[i];
 								add_crc(out_message, OUT_MESSAGE_SIZE);
-								for (auto i: out_message)Serial.write(i);
+								for (auto i: out_message)Serial1.write(i);
 							}
 							break;
 						case COMMAND_REQUEST_INA_PISTON2:
@@ -179,7 +192,7 @@ void loop()
 								for (int i = 0; i < 4; i ++)
 									out_message[i + 2] = pos.str[i];
 								add_crc(out_message, OUT_MESSAGE_SIZE);
-								for (auto i: out_message)Serial.write(i);
+								for (auto i: out_message)Serial1.write(i);
 							}
 							break;
 						case COMMAND_REQUEST_INA_DRILL:
@@ -192,7 +205,7 @@ void loop()
 								for (int i = 0; i < 4; i ++)
 									out_message[i + 2] = pos.str[i];
 								add_crc(out_message, OUT_MESSAGE_SIZE);
-								for (auto i: out_message)Serial.write(i);
+								for (auto i: out_message)Serial1.write(i);
 							}
 							break;
 						case COMMAND_REQUEST_INA_ALL:
@@ -205,7 +218,7 @@ void loop()
 								for (int i = 0; i < 4; i ++)
 									out_message[i + 2] = pos.str[i];
 								add_crc(out_message, OUT_MESSAGE_SIZE);
-								for (auto i: out_message)Serial.write(i);
+								for (auto i: out_message)Serial1.write(i);
 							}
 							break;
 						default:
@@ -239,7 +252,7 @@ void loop()
 		break;
 	}
 
-	update_builtin_led();
+	update_neopixel(pixels);
 	ch.update(p1_analog_in, p1_pwm, p1_dir, p2_analog_in, p2_pwm, p2_dir, m_pwm, m_dir);
 	analogWrite(P1_PWM_PIN,p1_pwm);
 	gpio.write(P1_DIR_PIN, p1_dir);
