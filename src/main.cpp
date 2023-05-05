@@ -22,6 +22,7 @@ void encoderISR(){ch.drill_handler();}
 
 void setup()
 {
+	delay(1000);
 	Serial.begin(115200);
 	Serial1.begin(115200);
 	p1_ina.begin();
@@ -127,18 +128,25 @@ void loop()
 								Serial.print("command set rpm ");
 								Serial.println((int) in_message[2]);
 								ch.set_drill_target_pwm(in_message[2]);
-								state = 1;
 							}
 							break;
 						case COMMAND_REQUEST_ALFA:
 							if (OUT_MESSAGE_SIZE >= 8)
 							{
+								Serial.print("request alfa ");
 								out_message[0] = BEGIN_BYTE;
 								out_message[1] = in_message[1];
 								float_to_byte pos;
 								pos.f = ch.get_alpha();
+								Serial.print(pos.f);
+								Serial.print(" ");
 								for (int i = 0; i < 4; i ++)
+								{
 									out_message[i + 2] = pos.str[i];
+									Serial.print((int)pos.str[i]);
+									Serial.print(" ");
+								}
+								Serial.println();
 								add_crc(out_message, OUT_MESSAGE_SIZE);
 								for (auto i: out_message)Serial1.write(i);
 							}
